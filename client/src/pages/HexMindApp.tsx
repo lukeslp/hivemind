@@ -41,6 +41,13 @@ import {
   Sparkles,
   BookOpen,
   Trash2,
+  Map,
+  Merge,
+  Download,
+  Upload,
+  FolderOpen,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -63,6 +70,8 @@ const HEX_SIZE = 80;
 const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
 const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";
+const STORAGE_KEY = "hexmind_sessions";
+const AUTOSAVE_KEY = "hexmind_autosave";
 
 // Hex Directions (pointy-top hexagon neighbors)
 const DIRECTIONS = [
@@ -279,6 +288,110 @@ const Modal = ({
   );
 };
 
+// Minimap Component - shows overview of entire graph
+const Minimap = ({
+  nodes,
+  viewState,
+  containerSize,
+  onNavigate,
+  selectedNodeId,
+}: {
+  nodes: Record<string, HexNode>;
+  viewState: ViewState;
+  containerSize: { width: number; height: number };
+  onNavigate: (x: number, y: number) => void;
+  selectedNodeId: string | null;
+}) => {
+  const minimapRef = useRef<HTMLDivElement>(null);
+  const MINIMAP_SIZE = 160;
+  const MINIMAP_PADDING = 10;
+
+  // Calculate bounds of all nodes
+  const nodeKeys = Object.keys(nodes);
+  if (nodeKeys.length === 0) return null;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodeKeys.forEach(key => {
+    const node = nodes[key];
+    const x = HEX_SIZE * (Math.sqrt(3) * node.q + (Math.sqrt(3) / 2) * node.r);
+    const y = HEX_SIZE * ((3 / 2) * node.r);
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  });
+
+  const graphWidth = maxX - minX + HEX_WIDTH * 2;
+  const graphHeight = maxY - minY + HEX_HEIGHT * 2;
+  const scale = Math.min(
+    (MINIMAP_SIZE - MINIMAP_PADDING * 2) / graphWidth,
+    (MINIMAP_SIZE - MINIMAP_PADDING * 2) / graphHeight,
+    0.15
+  );
+
+  // Viewport rectangle
+  const vpWidth = (containerSize.width / viewState.zoom) * scale;
+  const vpHeight = (containerSize.height / viewState.zoom) * scale;
+  const vpX = MINIMAP_SIZE / 2 - (viewState.x / viewState.zoom) * scale - vpWidth / 2;
+  const vpY = MINIMAP_SIZE / 2 - (viewState.y / viewState.zoom) * scale - vpHeight / 2;
+
+  const handleMinimapClick = (e: React.MouseEvent) => {
+    const rect = minimapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const clickX = e.clientX - rect.left - MINIMAP_SIZE / 2;
+    const clickY = e.clientY - rect.top - MINIMAP_SIZE / 2;
+    const worldX = -clickX / scale * viewState.zoom;
+    const worldY = -clickY / scale * viewState.zoom;
+    onNavigate(worldX, worldY);
+  };
+
+  return (
+    <div
+      ref={minimapRef}
+      className="bg-neutral-900/90 backdrop-blur border border-white/10 rounded-xl overflow-hidden cursor-crosshair shadow-xl"
+      style={{ width: MINIMAP_SIZE, height: MINIMAP_SIZE }}
+      onClick={handleMinimapClick}
+    >
+      <svg width={MINIMAP_SIZE} height={MINIMAP_SIZE}>
+        {/* Nodes */}
+        {nodeKeys.map(key => {
+          const node = nodes[key];
+          const x = HEX_SIZE * (Math.sqrt(3) * node.q + (Math.sqrt(3) / 2) * node.r);
+          const y = HEX_SIZE * ((3 / 2) * node.r);
+          const screenX = MINIMAP_SIZE / 2 + x * scale;
+          const screenY = MINIMAP_SIZE / 2 + y * scale;
+          const style = NODE_TYPES[node.type] || NODE_TYPES.default;
+          const isSelected = key === selectedNodeId;
+          
+          return (
+            <circle
+              key={key}
+              cx={screenX}
+              cy={screenY}
+              r={isSelected ? 4 : 2.5}
+              className={`${isSelected ? 'fill-white' : style.color.replace('text-', 'fill-')}`}
+              style={{ opacity: isSelected ? 1 : 0.7 }}
+            />
+          );
+        })}
+        
+        {/* Viewport rectangle */}
+        <rect
+          x={vpX}
+          y={vpY}
+          width={vpWidth}
+          height={vpHeight}
+          fill="none"
+          stroke="white"
+          strokeWidth="1"
+          strokeOpacity="0.5"
+          rx="2"
+        />
+      </svg>
+    </div>
+  );
+};
+
 // Floating Action Bar - appears near selected/hovered node
 const FloatingActionBar = ({
   node,
@@ -476,6 +589,18 @@ export default function HexMindApp() {
     onConfirm: () => {},
   });
 
+  // Minimap
+  const [showMinimap, setShowMinimap] = useState(true);
+
+  // Drag-merge state
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+
+  // Saved sessions
+  const [savedSessions, setSavedSessions] = useState<{ id: string; name: string; date: string; nodeCount: number }[]>([]);
+  const [showSessionsModal, setShowSessionsModal] = useState(false);
+  const [sessionName, setSessionName] = useState("");
+
   // Viewport culling effect
   useEffect(() => {
     const container = containerRef.current;
@@ -511,6 +636,144 @@ export default function HexMindApp() {
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
+
+  // Load saved sessions list on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setSavedSessions(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Failed to load sessions:", e);
+    }
+  }, []);
+
+  // Auto-save current session
+  useEffect(() => {
+    if (Object.keys(nodes).length > 0) {
+      try {
+        const autosave = {
+          nodes,
+          viewState,
+          creativity,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(autosave));
+      } catch (e) {
+        console.error("Autosave failed:", e);
+      }
+    }
+  }, [nodes, viewState, creativity]);
+
+  // Load autosave on mount
+  useEffect(() => {
+    try {
+      const autosave = localStorage.getItem(AUTOSAVE_KEY);
+      if (autosave) {
+        const data = JSON.parse(autosave);
+        if (data.nodes && Object.keys(data.nodes).length > 0) {
+          setNodes(data.nodes);
+          setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
+          setCreativity(data.creativity || 0.5);
+          setShowWelcome(false);
+          setHistory([data.nodes]);
+          setHistoryIndex(0);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load autosave:", e);
+    }
+  }, []);
+
+  // --- Session Management ---
+  const saveSession = (name: string) => {
+    const sessionId = `session_${Date.now()}`;
+    const session = {
+      id: sessionId,
+      name: name || `Session ${savedSessions.length + 1}`,
+      date: new Date().toISOString(),
+      nodeCount: Object.keys(nodes).length,
+    };
+    const sessionData = {
+      nodes,
+      viewState,
+      creativity,
+    };
+    try {
+      localStorage.setItem(sessionId, JSON.stringify(sessionData));
+      const newSessions = [...savedSessions, session];
+      setSavedSessions(newSessions);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSessions));
+    } catch (e) {
+      console.error("Failed to save session:", e);
+    }
+  };
+
+  const loadSession = (sessionId: string) => {
+    try {
+      const data = localStorage.getItem(sessionId);
+      if (data) {
+        const parsed = JSON.parse(data);
+        setNodes(parsed.nodes);
+        setViewState(parsed.viewState || { x: 0, y: 0, zoom: 0.8 });
+        setCreativity(parsed.creativity || 0.5);
+        setShowWelcome(false);
+        setHistory([parsed.nodes]);
+        setHistoryIndex(0);
+        setShowSessionsModal(false);
+      }
+    } catch (e) {
+      console.error("Failed to load session:", e);
+    }
+  };
+
+  const deleteSession = (sessionId: string) => {
+    try {
+      localStorage.removeItem(sessionId);
+      const newSessions = savedSessions.filter(s => s.id !== sessionId);
+      setSavedSessions(newSessions);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSessions));
+    } catch (e) {
+      console.error("Failed to delete session:", e);
+    }
+  };
+
+  const exportSession = () => {
+    const data = {
+      nodes,
+      viewState,
+      creativity,
+      exportDate: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hexmind_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importSession = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (data.nodes) {
+          setNodes(data.nodes);
+          setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
+          setCreativity(data.creativity || 0.5);
+          setShowWelcome(false);
+          setHistory([data.nodes]);
+          setHistoryIndex(0);
+        }
+      } catch (err) {
+        console.error("Failed to import session:", err);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // --- Undo/Redo Logic ---
   const commitNodes = (newNodes: Record<string, HexNode>) => {
@@ -905,6 +1168,42 @@ Be comprehensive but focused on the user's specific request.`;
     setSelectedNodeId("0,0");
   };
 
+  // --- Node Merging ---
+  const mergeNodes = (sourceKey: string, targetKey: string) => {
+    const sourceNode = nodes[sourceKey];
+    const targetNode = nodes[targetKey];
+    if (!sourceNode || !targetNode || sourceKey === targetKey) return;
+
+    // Merge: combine text and descriptions, keep target position
+    const mergedNode: HexNode = {
+      ...targetNode,
+      text: `${targetNode.text} + ${sourceNode.text}`,
+      description: [
+        targetNode.description,
+        sourceNode.description,
+        `Merged from: ${sourceNode.text}`,
+      ].filter(Boolean).join('\n\n'),
+      pinned: targetNode.pinned || sourceNode.pinned,
+    };
+
+    // Update children of source to point to target
+    const newNodes = { ...nodes };
+    Object.entries(newNodes).forEach(([key, node]) => {
+      if (node.parentId === sourceKey) {
+        newNodes[key] = { ...node, parentId: targetKey };
+      }
+    });
+
+    // Remove source, update target
+    delete newNodes[sourceKey];
+    newNodes[targetKey] = mergedNode;
+
+    commitNodes(newNodes);
+    setSelectedNodeId(targetKey);
+    setDraggedNodeId(null);
+    setDropTargetId(null);
+  };
+
   // --- Interaction Handlers ---
   const startBrainstorm = (initialIdea = rootInput) => {
     if (!initialIdea.trim()) return;
@@ -1156,6 +1455,46 @@ Be comprehensive but focused on the user's specific request.`;
               >
                 <Search className="w-4 h-4" />
               </button>
+
+              {/* Session Management */}
+              <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowSessionsModal(true)}
+                      className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Sessions</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={exportSession}
+                      className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Export JSON</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <label className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && importSession(e.target.files[0])}
+                      />
+                    </label>
+                  </TooltipTrigger>
+                  <TooltipContent>Import JSON</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           )}
         </div>
@@ -1206,6 +1545,18 @@ Be comprehensive but focused on the user's specific request.`;
               className="w-16 sm:w-20"
             />
           </div>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setShowMinimap(!showMinimap)}
+                className={`p-3 bg-neutral-900/90 border border-white/10 rounded-xl transition-colors ${showMinimap ? 'bg-white/10' : 'hover:bg-white/5'}`}
+              >
+                <Map className="w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{showMinimap ? 'Hide Minimap' : 'Show Minimap'}</TooltipContent>
+          </Tooltip>
 
           <button
             onClick={() => setViewState({ x: 0, y: 0, zoom: 0.8 })}
@@ -1298,6 +1649,35 @@ Be comprehensive but focused on the user's specific request.`;
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
+                        draggable={!node.pinned && node.type !== 'root'}
+                        onDragStart={(e) => {
+                          if (node.pinned || node.type === 'root') {
+                            e.preventDefault();
+                            return;
+                          }
+                          setDraggedNodeId(key);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={() => {
+                          setDraggedNodeId(null);
+                          setDropTargetId(null);
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedNodeId && draggedNodeId !== key) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                            setDropTargetId(key);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (dropTargetId === key) setDropTargetId(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedNodeId && draggedNodeId !== key) {
+                            mergeNodes(draggedNodeId, key);
+                          }
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleNodeClick(key, node);
@@ -1311,6 +1691,8 @@ Be comprehensive but focused on the user's specific request.`;
                           transition-transform duration-200
                           ${isSelected ? "scale-110" : isHovered ? "scale-105" : ""}
                           ${isLoading ? "animate-pulse" : ""}
+                          ${draggedNodeId === key ? "opacity-50 scale-95" : ""}
+                          ${dropTargetId === key ? "ring-4 ring-indigo-500 ring-opacity-75 scale-110" : ""}
                         `}
                       >
                         <svg
@@ -1533,6 +1915,10 @@ Be comprehensive but focused on the user's specific request.`;
                 <Pin className="w-4 h-4 text-green-400" /> Pin nodes to protect them
                 from regeneration
               </li>
+              <li className="flex items-center gap-2">
+                <Merge className="w-4 h-4 text-cyan-400" /> Drag a node onto another
+                to merge ideas
+              </li>
             </ul>
           </div>
 
@@ -1697,6 +2083,90 @@ Be comprehensive but focused on the user's specific request.`;
         title={confirmModal.title}
         message={confirmModal.message}
       />
+
+      {/* Sessions Modal */}
+      <Modal
+        isOpen={showSessionsModal}
+        onClose={() => setShowSessionsModal(false)}
+        title="Saved Sessions"
+      >
+        <div className="flex flex-col gap-4">
+          {/* Save Current */}
+          <div className="flex gap-2">
+            <Input
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              placeholder="Session name..."
+              className="flex-1 bg-neutral-800 border-white/10"
+            />
+            <Button
+              onClick={() => {
+                saveSession(sessionName);
+                setSessionName("");
+              }}
+              disabled={Object.keys(nodes).length === 0}
+              className="bg-indigo-600 hover:bg-indigo-500"
+            >
+              <Save className="w-4 h-4 mr-2" /> Save
+            </Button>
+          </div>
+
+          {/* Sessions List */}
+          <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+            {savedSessions.length === 0 ? (
+              <p className="text-neutral-500 text-center py-4">No saved sessions yet</p>
+            ) : (
+              savedSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-white truncate">{session.name}</p>
+                    <p className="text-xs text-neutral-500">
+                      {new Date(session.date).toLocaleDateString()} • {session.nodeCount} nodes
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => loadSession(session.id)}
+                      className="text-indigo-400 hover:text-indigo-300"
+                    >
+                      Load
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteSession(session.id)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Minimap */}
+      {showMinimap && Object.keys(nodes).length > 0 && containerRef.current && (
+        <div className="absolute bottom-4 right-4 z-30 pointer-events-auto interactive-ui">
+          <Minimap
+            nodes={nodes}
+            viewState={viewState}
+            containerSize={{
+              width: containerRef.current.clientWidth,
+              height: containerRef.current.clientHeight,
+            }}
+            onNavigate={(x, y) => setViewState({ ...viewState, x, y })}
+            selectedNodeId={selectedNodeId}
+          />
+        </div>
+      )}
     </div>
   );
 }
