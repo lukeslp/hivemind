@@ -56,6 +56,7 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { TEMPLATES, TEMPLATE_CATEGORIES, Template } from "@/lib/templates";
 import {
   Dialog,
   DialogContent,
@@ -609,6 +610,10 @@ export default function HexMindApp() {
 
   // Filter state
   const [filterType, setFilterType] = useState<string | null>(null);
+
+  // Template selection
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
   // Viewport culling effect
   useEffect(() => {
@@ -1246,6 +1251,28 @@ Be comprehensive but focused on the user's specific request.`;
     generateNeighbors(firstNode);
     setSelectedNodeId("0,0");
     setShowWelcome(false);
+  };
+
+  const loadTemplate = (template: Template) => {
+    // Convert template nodes to HexNode format
+    const newNodes: Record<string, HexNode> = {};
+    template.nodes.forEach((tNode) => {
+      const key = getNodeKey(tNode.q, tNode.r);
+      newNodes[key] = {
+        q: tNode.q,
+        r: tNode.r,
+        text: tNode.text,
+        description: tNode.description,
+        type: tNode.type === "concept" && tNode.depth === 0 ? "root" : tNode.type,
+        depth: tNode.depth,
+        pinned: tNode.isPinned || false,
+      };
+    });
+    
+    commitNodes(newNodes);
+    setViewState({ x: 0, y: 0, zoom: 1 });
+    setSelectedNodeId("0,0");
+    setShowTemplates(false);
   };
 
   const handleManualAdd = (parentNode: HexNode) => {
@@ -2055,13 +2082,28 @@ Be comprehensive but focused on the user's specific request.`;
               className="w-full bg-neutral-800 border-white/10 text-center text-lg text-white placeholder:text-neutral-600"
               autoFocus
             />
-            <Button
-              onClick={() => startBrainstorm()}
-              disabled={!rootInput.trim()}
-              className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 text-lg"
-            >
-              Launch Hive
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => startBrainstorm()}
+                disabled={!rootInput.trim()}
+                className="flex-1 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 text-lg"
+              >
+                Launch Hive
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowWelcome(false);
+                  setShowTemplates(true);
+                }}
+                variant="outline"
+                className="px-6 py-3 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+              >
+                <Layout className="w-5 h-5" />
+              </Button>
+            </div>
+            <p className="text-xs text-neutral-500 text-center">
+              Or choose from pre-built templates →
+            </p>
           </div>
         </div>
       </Modal>
@@ -2378,6 +2420,73 @@ Be comprehensive but focused on the user's specific request.`;
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Templates Modal */}
+      <Modal
+        isOpen={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        title="Choose a Template"
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-6">
+          {/* Category Filter */}
+          <div className="flex flex-wrap gap-2">
+            {TEMPLATE_CATEGORIES.map((cat) => (
+              <Button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                variant={selectedCategory === cat.id ? "default" : "outline"}
+                className={selectedCategory === cat.id ? "bg-yellow-500 text-black" : "border-white/10 text-neutral-300"}
+                size="sm"
+              >
+                <span className="mr-2">{cat.icon}</span>
+                {cat.name}
+              </Button>
+            ))}
+          </div>
+
+          {/* Templates Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            {TEMPLATES
+              .filter((t) => selectedCategory === "all" || t.category === selectedCategory)
+              .map((template) => (
+                <div
+                  key={template.id}
+                  className="bg-white/5 border border-white/10 rounded-xl p-5 hover:border-yellow-500/50 hover:bg-white/10 transition-all cursor-pointer group"
+                  onClick={() => loadTemplate(template)}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="text-4xl">{template.icon}</div>
+                    <div className="flex-1 space-y-2">
+                      <h3 className="text-lg font-bold text-white group-hover:text-yellow-400 transition-colors">
+                        {template.name}
+                      </h3>
+                      <p className="text-sm text-neutral-400">{template.description}</p>
+                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <span>{template.nodes.length} nodes</span>
+                        <span>•</span>
+                        <span className="capitalize">{template.category.replace("-", " ")}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t border-white/10">
+            <p className="text-sm text-neutral-500">
+              Templates provide a structured starting point. You can expand and customize them freely.
+            </p>
+            <Button
+              onClick={() => setShowTemplates(false)}
+              variant="ghost"
+              className="text-neutral-400"
+            >
+              Cancel
+            </Button>
           </div>
         </div>
       </Modal>
