@@ -975,7 +975,12 @@ Generate 6 diverse related ideas exploring different aspects.`;
       );
 
       const result = await response.json();
-      console.log("API Response:", result);
+      console.log("=== API Response ===", result);
+      
+      if (!response.ok) {
+        console.error("HTTP Error:", response.status, response.statusText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       
       // Check for API errors
       if (result.error) {
@@ -984,7 +989,12 @@ Generate 6 diverse related ideas exploring different aspects.`;
       }
       
       let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      console.log("Raw API text:", text);
+      console.log("=== Raw API text ===", text);
+      
+      if (!text) {
+        console.error("No text in API response. Full result:", JSON.stringify(result, null, 2));
+        throw new Error("API returned no content");
+      }
       
       // Strip markdown code fences if present
       if (text) {
@@ -2171,7 +2181,7 @@ Be comprehensive but focused on the user's specific request.`;
       {/* Rich Hover Panel - Shows full node details on hover */}
       {hoveredNodeId && nodes[hoveredNodeId] && hoveredNodeId !== selectedNodeId && (
         <div 
-          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[600px] max-h-[80vh] overflow-y-auto pointer-events-none animate-in fade-in duration-200"
+          className="fixed bottom-20 right-4 z-50 w-[400px] max-h-[500px] overflow-y-auto pointer-events-none animate-in slide-in-from-bottom-2 duration-200"
           onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
         >
           <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
