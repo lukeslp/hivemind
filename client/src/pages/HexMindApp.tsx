@@ -453,7 +453,7 @@ const FloatingActionBar = ({
               )}
             </button>
           </TooltipTrigger>
-          <TooltipContent>Generate Ideas</TooltipContent>
+          <TooltipContent>AI Generate Neighbors</TooltipContent>
         </Tooltip>
 
         {/* Refresh */}
@@ -508,7 +508,7 @@ const FloatingActionBar = ({
               <Plus className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>Add Node</TooltipContent>
+          <TooltipContent>Add Manual Child Node</TooltipContent>
         </Tooltip>
 
         <div className="w-px h-5 bg-white/10" />
@@ -523,7 +523,7 @@ const FloatingActionBar = ({
               <BookOpen className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>Deep Dive</TooltipContent>
+          <TooltipContent>Deep Dive Analysis</TooltipContent>
         </Tooltip>
 
         {/* Prune/Delete */}
@@ -1876,7 +1876,6 @@ Be comprehensive but focused on the user's specific request.`;
                   }}
                   className={`absolute group transition-all duration-200 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
                   onMouseEnter={() => setHoveredNodeId(key)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
                 >
                       <div
                         draggable={!node.pinned && node.type !== 'root'}
@@ -2178,11 +2177,10 @@ Be comprehensive but focused on the user's specific request.`;
         </div>
       </Modal>
 
-      {/* Rich Hover Panel - Shows full node details on hover */}
-      {hoveredNodeId && nodes[hoveredNodeId] && hoveredNodeId !== selectedNodeId && (
+      {/* Rich Hover Panel - Shows full node details on hover, persists until closed */}
+      {hoveredNodeId && nodes[hoveredNodeId] && (
         <div 
-          className="fixed bottom-4 right-4 z-50 w-[400px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-none animate-in slide-in-from-bottom-2 duration-200"
-          onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
+          className="fixed bottom-4 left-4 z-50 w-[380px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto animate-in slide-in-from-left-2 duration-200"
         >
           <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
             {/* Header with close button */}
@@ -2278,7 +2276,7 @@ Be comprehensive but focused on the user's specific request.`;
         isOpen={!!deepDiveContent || isDeepDiveLoading}
         onClose={() => setDeepDiveContent(null)}
         title={`Deep Dive: ${deepDiveTitle}`}
-        maxWidth="max-w-3xl"
+        maxWidth="max-w-5xl"
       >
         {isDeepDiveLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
@@ -2286,8 +2284,23 @@ Be comprehensive but focused on the user's specific request.`;
             <p className="text-neutral-400">Analyzing...</p>
           </div>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none">
-            <ReactMarkdown>{deepDiveContent || ""}</ReactMarkdown>
+          <div className="prose prose-invert prose-lg max-w-none">
+            <ReactMarkdown
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-white" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-white" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-neutral-200" {...props} />,
+                p: ({node, ...props}) => <p className="text-base leading-relaxed mb-4 text-neutral-300" {...props} />,
+                ul: ({node, ...props}) => <ul className="space-y-2 mb-6 ml-6" {...props} />,
+                ol: ({node, ...props}) => <ol className="space-y-2 mb-6 ml-6" {...props} />,
+                li: ({node, ...props}) => <li className="text-base leading-relaxed text-neutral-300" {...props} />,
+                strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                em: ({node, ...props}) => <em className="italic text-neutral-200" {...props} />,
+                code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-neutral-800 text-amber-400 text-sm" {...props} />,
+              }}
+            >
+              {deepDiveContent || ""}
+            </ReactMarkdown>
           </div>
         )}
       </Modal>
