@@ -5,6 +5,8 @@
  * - Hexagonal geometry as foundational visual language
  * - Glassmorphic UI panels with blur and transparency
  * - Electric accent colors for node types
+ * - Flow-state ideation with minimal interruptions
+ * - Direct manipulation paradigm
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -13,7 +15,6 @@ import {
   Loader2,
   MousePointer2,
   Maximize2,
-  Trash2,
   Zap,
   Layout,
   Info,
@@ -31,7 +32,6 @@ import {
   Camera,
   Scissors,
   Crosshair,
-  FolderOpen,
   Thermometer,
   Search,
   Undo2,
@@ -40,6 +40,7 @@ import {
   Target,
   Sparkles,
   BookOpen,
+  Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // --- Constants & Config ---
 const HEX_SIZE = 80;
@@ -58,14 +64,14 @@ const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
 const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";
 
-// Hex Directions
+// Hex Directions (pointy-top hexagon neighbors)
 const DIRECTIONS = [
-  { q: 1, r: 0 },
-  { q: 1, r: -1 },
-  { q: 0, r: -1 },
-  { q: -1, r: 0 },
-  { q: -1, r: 1 },
-  { q: 0, r: 1 },
+  { q: 1, r: 0 },   // East
+  { q: 1, r: -1 },  // Northeast
+  { q: 0, r: -1 },  // Northwest
+  { q: -1, r: 0 },  // West
+  { q: -1, r: 1 },  // Southwest
+  { q: 0, r: 1 },   // Southeast
 ];
 
 // Node Types with styling
@@ -77,6 +83,7 @@ const NODE_TYPES: Record<
     color: string;
     border: string;
     bg: string;
+    bgSolid: string;
     icon: React.ElementType;
   }
 > = {
@@ -85,7 +92,8 @@ const NODE_TYPES: Record<
     label: "Core",
     color: "text-yellow-400",
     border: "stroke-yellow-500",
-    bg: "fill-yellow-500/10",
+    bg: "fill-yellow-500/20",
+    bgSolid: "#facc15",
     icon: Zap,
   },
   concept: {
@@ -93,7 +101,8 @@ const NODE_TYPES: Record<
     label: "Concept",
     color: "text-amber-400",
     border: "stroke-amber-500",
-    bg: "fill-amber-500/10",
+    bg: "fill-amber-500/20",
+    bgSolid: "#f59e0b",
     icon: Lightbulb,
   },
   action: {
@@ -101,7 +110,8 @@ const NODE_TYPES: Record<
     label: "Action",
     color: "text-rose-400",
     border: "stroke-rose-500",
-    bg: "fill-rose-500/10",
+    bg: "fill-rose-500/20",
+    bgSolid: "#f43f5e",
     icon: Activity,
   },
   technical: {
@@ -109,7 +119,8 @@ const NODE_TYPES: Record<
     label: "Technical",
     color: "text-cyan-400",
     border: "stroke-cyan-500",
-    bg: "fill-cyan-500/10",
+    bg: "fill-cyan-500/20",
+    bgSolid: "#22d3ee",
     icon: Terminal,
   },
   question: {
@@ -117,7 +128,8 @@ const NODE_TYPES: Record<
     label: "Question",
     color: "text-purple-400",
     border: "stroke-purple-500",
-    bg: "fill-purple-500/10",
+    bg: "fill-purple-500/20",
+    bgSolid: "#a78bfa",
     icon: HelpCircle,
   },
   risk: {
@@ -125,7 +137,8 @@ const NODE_TYPES: Record<
     label: "Risk",
     color: "text-red-500",
     border: "stroke-red-600",
-    bg: "fill-red-500/10",
+    bg: "fill-red-500/20",
+    bgSolid: "#ef4444",
     icon: Target,
   },
   default: {
@@ -133,7 +146,8 @@ const NODE_TYPES: Record<
     label: "Node",
     color: "text-slate-400",
     border: "stroke-slate-500",
-    bg: "fill-slate-500/10",
+    bg: "fill-slate-500/20",
+    bgSolid: "#64748b",
     icon: Box,
   },
 };
@@ -192,6 +206,7 @@ interface ViewState {
 interface ConfirmModalState {
   isOpen: boolean;
   title: string;
+  message: string;
   onConfirm: () => void;
 }
 
@@ -201,11 +216,13 @@ const ConfirmationModal = ({
   onClose,
   onConfirm,
   title,
+  message,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   title: string;
+  message: string;
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -214,9 +231,7 @@ const ConfirmationModal = ({
           <DialogTitle className="text-white">{title}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <p className="text-neutral-400 text-sm">
-            Are you sure you want to proceed? This action cannot be undone.
-          </p>
+          <p className="text-neutral-400 text-sm">{message}</p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>
               Cancel
@@ -264,6 +279,151 @@ const Modal = ({
   );
 };
 
+// Floating Action Bar - appears near selected/hovered node
+const FloatingActionBar = ({
+  node,
+  nodeKey,
+  position,
+  onExpand,
+  onRefresh,
+  onPin,
+  onEdit,
+  onPrune,
+  onDeepDive,
+  onAdd,
+  isLoading,
+}: {
+  node: HexNode;
+  nodeKey: string;
+  position: { x: number; y: number };
+  onExpand: () => void;
+  onRefresh: () => void;
+  onPin: () => void;
+  onEdit: () => void;
+  onPrune: () => void;
+  onDeepDive: () => void;
+  onAdd: () => void;
+  isLoading: boolean;
+}) => {
+  const style = NODE_TYPES[node.type] || NODE_TYPES.default;
+
+  return (
+    <div
+      className="absolute z-50 pointer-events-auto interactive-ui animate-in fade-in zoom-in-95 duration-150"
+      style={{
+        left: position.x,
+        top: position.y - 60,
+        transform: "translateX(-50%)",
+      }}
+    >
+      <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl px-2 py-1.5 flex items-center gap-1">
+        {/* Expand/Generate */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onExpand}
+              disabled={isLoading}
+              className={`p-2 rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-white/10"} ${style.color}`}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Generate Ideas</TooltipContent>
+        </Tooltip>
+
+        {/* Refresh */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 transition-all"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Regenerate</TooltipContent>
+        </Tooltip>
+
+        <div className="w-px h-5 bg-white/10" />
+
+        {/* Pin */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onPin}
+              className={`p-2 rounded-full transition-all ${node.pinned ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-neutral-400"}`}
+            >
+              <Pin className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{node.pinned ? "Unpin" : "Pin"}</TooltipContent>
+        </Tooltip>
+
+        {/* Edit */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onEdit}
+              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 transition-all"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Edit</TooltipContent>
+        </Tooltip>
+
+        {/* Add Manual */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onAdd}
+              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Add Node</TooltipContent>
+        </Tooltip>
+
+        <div className="w-px h-5 bg-white/10" />
+
+        {/* Deep Dive */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onDeepDive}
+              className="p-2 rounded-full hover:bg-indigo-500/20 text-indigo-400 transition-all"
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Deep Dive</TooltipContent>
+        </Tooltip>
+
+        {/* Prune/Delete */}
+        {node.type !== "root" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onPrune}
+                className="p-2 rounded-full hover:bg-red-500/20 text-red-400 transition-all"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function HexMindApp() {
   // --- State ---
   const [nodes, setNodes] = useState<Record<string, HexNode>>({});
@@ -292,7 +452,6 @@ export default function HexMindApp() {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -313,6 +472,7 @@ export default function HexMindApp() {
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
     isOpen: false,
     title: "",
+    message: "",
     onConfirm: () => {},
   });
 
@@ -324,18 +484,19 @@ export default function HexMindApp() {
     const updateVisibleNodes = () => {
       const newVisibleNodes: Record<string, HexNode> = {};
       const { width, height } = container.getBoundingClientRect();
+      const padding = HEX_WIDTH * 2;
 
       for (const key in nodes) {
         const node = nodes[key];
         const { x, y } = hexToPixel(node.q, node.r);
-        const screenX = viewState.x + x * viewState.zoom;
-        const screenY = viewState.y + y * viewState.zoom;
+        const screenX = width / 2 + viewState.x + x * viewState.zoom;
+        const screenY = height / 2 + viewState.y + y * viewState.zoom;
 
         if (
-          screenX > -HEX_WIDTH * viewState.zoom &&
-          screenX < width + HEX_WIDTH * viewState.zoom &&
-          screenY > -HEX_HEIGHT * viewState.zoom &&
-          screenY < height + HEX_HEIGHT * viewState.zoom
+          screenX > -padding &&
+          screenX < width + padding &&
+          screenY > -padding &&
+          screenY < height + padding
         ) {
           newVisibleNodes[key] = node;
         }
@@ -344,9 +505,6 @@ export default function HexMindApp() {
     };
 
     updateVisibleNodes();
-
-    const debouncedUpdate = setTimeout(updateVisibleNodes, 100);
-    return () => clearTimeout(debouncedUpdate);
   }, [nodes, viewState]);
 
   // Update ref when nodes change
@@ -424,6 +582,11 @@ export default function HexMindApp() {
         setIsSearchOpen(true);
         setTimeout(() => searchInputRef.current?.focus(), 50);
       }
+      // Escape to deselect
+      if (e.key === "Escape") {
+        setSelectedNodeId(null);
+        setEditingNodeId(null);
+      }
     };
     window.addEventListener("keydown", handleKeyDown, { passive: false });
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -464,8 +627,8 @@ export default function HexMindApp() {
     const { x, y } = hexToPixel(target.q, target.r);
     setViewState((prev) => ({
       ...prev,
-      x: -x + window.innerWidth / 2,
-      y: -y + window.innerHeight / 2,
+      x: -x * prev.zoom,
+      y: -y * prev.zoom,
     }));
     setSelectedNodeId(getNodeKey(target.q, target.r));
   };
@@ -482,12 +645,21 @@ export default function HexMindApp() {
         : creativity > 0.7
           ? "Wild, abstract, and out-of-the-box"
           : "Balanced and creative";
-    const systemPrompt = `You are a brainstorming engine. Style: ${tempDesc}.
-    Given a central idea, generate 6 distinct related nodes.
-    Types: concept, action, technical, question, risk.
-    Return JSON: { "branches": [{ "title": "...", "description": "...", "type": "..." }] }`;
+    
+    // Improved prompt to ensure exactly 6 branches
+    const systemPrompt = `You are a brainstorming engine for a hexagonal mind map. Style: ${tempDesc}.
+Given a central idea, you MUST generate EXACTLY 6 distinct related nodes to fill all hexagonal neighbors.
+Each node should explore a different angle or aspect of the central idea.
+Types available: concept, action, technical, question, risk.
+Vary the types to create a diverse exploration.
 
-    const userQuery = `Center: "${centerNode.text}" (${centerNode.description || ""})`;
+IMPORTANT: You MUST return exactly 6 branches, no more, no less.
+
+Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk" }, ... ] }`;
+
+    const userQuery = `Central idea: "${centerNode.text}"
+Context: ${centerNode.description || "No additional context"}
+Generate 6 diverse related ideas exploring different aspects.`;
 
     try {
       const response = await fetch(
@@ -498,14 +670,45 @@ export default function HexMindApp() {
           body: JSON.stringify({
             contents: [{ parts: [{ text: userQuery }] }],
             systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: { responseMimeType: "application/json" },
+            generationConfig: { 
+              responseMimeType: "application/json",
+              temperature: 0.7 + (creativity * 0.6), // 0.7-1.3 based on creativity
+            },
           }),
         }
       );
 
       const result = await response.json();
+      console.log("API Response:", result);
+      
+      // Check for API errors
+      if (result.error) {
+        console.error("API Error:", result.error);
+        throw new Error(result.error.message || "API request failed");
+      }
+      
       const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      const branches = text ? JSON.parse(text).branches : [];
+      console.log("Parsed text:", text);
+      let branches = [];
+      
+      try {
+        const parsed = text ? JSON.parse(text) : {};
+        branches = parsed.branches || [];
+        console.log("Parsed branches:", branches);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Raw text:", text);
+        branches = [];
+      }
+
+      // Ensure we have exactly 6 branches by padding if needed
+      const defaultTypes = ["concept", "action", "technical", "question", "risk", "concept"];
+      while (branches.length < 6) {
+        branches.push({
+          title: `Idea ${branches.length + 1}`,
+          description: `Related aspect of "${centerNode.text}"`,
+          type: defaultTypes[branches.length % defaultTypes.length],
+        });
+      }
 
       const currentNodes = nodesRef.current;
       const newNodes = { ...currentNodes };
@@ -519,12 +722,15 @@ export default function HexMindApp() {
           !existing || (forceRefresh && !existing.pinned && existing.parentId === key);
 
         if (shouldUpdate && branches[i]) {
+          const nodeType = branches[i].type?.toLowerCase() || "concept";
+          const validType = NODE_TYPES[nodeType] ? nodeType : "concept";
+          
           newNodes[neighborKey] = {
             q: nQ,
             r: nR,
-            text: branches[i].title,
-            description: branches[i].description,
-            type: branches[i].type.toLowerCase(),
+            text: branches[i].title || `Idea ${i + 1}`,
+            description: branches[i].description || "",
+            type: validType,
             depth: (centerNode.depth || 0) + 1,
             parentId: key,
             pinned: false,
@@ -534,6 +740,31 @@ export default function HexMindApp() {
       commitNodes(newNodes);
     } catch (error) {
       console.error("AI Error:", error);
+      // On error, still populate with placeholder nodes
+      const currentNodes = nodesRef.current;
+      const newNodes = { ...currentNodes };
+      const defaultTypes = ["concept", "action", "technical", "question", "risk", "concept"];
+      
+      DIRECTIONS.forEach((dir, i) => {
+        const nQ = centerNode.q + dir.q;
+        const nR = centerNode.r + dir.r;
+        const neighborKey = getNodeKey(nQ, nR);
+        const existing = newNodes[neighborKey];
+        
+        if (!existing) {
+          newNodes[neighborKey] = {
+            q: nQ,
+            r: nR,
+            text: `Explore ${i + 1}`,
+            description: `Click to expand from "${centerNode.text}"`,
+            type: defaultTypes[i],
+            depth: (centerNode.depth || 0) + 1,
+            parentId: key,
+            pinned: false,
+          };
+        }
+      });
+      commitNodes(newNodes);
     } finally {
       setLoadingNode(null);
     }
@@ -544,8 +775,19 @@ export default function HexMindApp() {
     setDeepDiveContent(null);
     setIsDeepDiveLoading(true);
 
-    const prompt = `Deep Dive into: "${node.text}". Context: ${node.description}. Type: ${node.type}.
-    Provide a detailed Markdown response appropriate for this type.`;
+    const prompt = `Deep Dive Analysis: "${node.text}"
+
+Context: ${node.description || "No additional context"}
+Node Type: ${node.type}
+
+Provide a comprehensive analysis in Markdown format including:
+- Overview and significance
+- Key considerations
+- Potential approaches or solutions
+- Related concepts to explore
+- Questions to consider
+
+Be thorough but concise.`;
 
     try {
       const response = await fetch(
@@ -558,10 +800,10 @@ export default function HexMindApp() {
       );
       const result = await response.json();
       setDeepDiveContent(
-        result.candidates?.[0]?.content?.parts?.[0]?.text || "No content."
+        result.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated."
       );
     } catch {
-      setDeepDiveContent("Error generating content.");
+      setDeepDiveContent("Error generating content. Please try again.");
     } finally {
       setIsDeepDiveLoading(false);
     }
@@ -573,9 +815,21 @@ export default function HexMindApp() {
     setBuildResult("");
 
     const context = Object.values(nodes)
-      .map((n) => `- [${n.type}] ${n.text}: ${n.description}`)
+      .map((n) => `- [${n.type.toUpperCase()}] ${n.text}: ${n.description || "No description"}`)
       .join("\n");
-    const prompt = `Context:\n${context}\n\nUser Request: ${buildPrompt}\n\nDetermine the best format and generate it in Markdown.`;
+    
+    const prompt = `You are helping synthesize a brainstorming session into a useful artifact.
+
+## Brainstorm Map Contents:
+${context}
+
+## User Request:
+${buildPrompt}
+
+## Instructions:
+Generate a well-structured, professional document in Markdown format.
+Use proper headings, lists, and formatting.
+Be comprehensive but focused on the user's specific request.`;
 
     try {
       const response = await fetch(
@@ -588,10 +842,10 @@ export default function HexMindApp() {
       );
       const result = await response.json();
       setBuildResult(
-        result.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to build."
+        result.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to generate artifact."
       );
     } catch {
-      setBuildResult("Error building artifact.");
+      setBuildResult("Error building artifact. Please try again.");
     } finally {
       setIsBuilding(false);
     }
@@ -599,9 +853,13 @@ export default function HexMindApp() {
 
   // --- Graph Management ---
   const pruneNode = (key: string) => {
+    const node = nodes[key];
+    if (!node || node.type === "root") return;
+    
     setConfirmModal({
       isOpen: true,
       title: "Delete Node?",
+      message: `Delete "${node.text}" and all its children? This cannot be undone.`,
       onConfirm: () => {
         const nodesToDelete = new Set([key]);
         let sizeBefore = 0;
@@ -654,7 +912,7 @@ export default function HexMindApp() {
       q: 0,
       r: 0,
       text: initialIdea,
-      description: "Root Idea",
+      description: "The central idea of this brainstorm",
       depth: 0,
       pinned: true,
       type: "root",
@@ -677,7 +935,7 @@ export default function HexMindApp() {
           q: nQ,
           r: nR,
           text: "New Idea",
-          description: "Manual node",
+          description: "Click to edit",
           type: "concept",
           depth: parentNode.depth + 1,
           parentId: getNodeKey(parentNode.q, parentNode.r),
@@ -691,36 +949,15 @@ export default function HexMindApp() {
         return;
       }
     }
-    alert("No space around this node!");
-  };
-
-  const updateNodeType = (key: string, newType: string) => {
-    const node = nodes[key];
-    if (!node) return;
-    commitNodes({ ...nodes, [key]: { ...node, type: newType } });
-    setShowTypeSelector(false);
+    // All neighbors occupied - show message
   };
 
   const handleNodeClick = (key: string, node: HexNode) => {
-    setSelectedNodeId(key);
-    setShowTypeSelector(false);
-
-    const hasChildren = DIRECTIONS.some((dir) => {
-      const nQ = node.q + dir.q;
-      const nR = node.r + dir.r;
-      const nKey = getNodeKey(nQ, nR);
-      const neighbor = nodes[nKey];
-      return neighbor && neighbor.parentId === key;
-    });
-
-    if (hasChildren) {
-      setConfirmModal({
-        isOpen: true,
-        title: "Refresh Idea?",
-        onConfirm: () => generateNeighbors(node, true),
-      });
-    } else {
+    if (selectedNodeId === key) {
+      // Double-click behavior on already selected - expand
       generateNeighbors(node);
+    } else {
+      setSelectedNodeId(key);
     }
   };
 
@@ -805,8 +1042,38 @@ export default function HexMindApp() {
     document.body.removeChild(a);
   };
 
-  // Prioritize Hovered Node for Info Panel
-  const activeNode = nodes[hoveredNodeId || ""] || nodes[selectedNodeId || ""];
+  // Get active node and its screen position for floating action bar
+  const activeNodeKey = selectedNodeId || hoveredNodeId;
+  const activeNode = activeNodeKey ? nodes[activeNodeKey] : null;
+  
+  const getNodeScreenPosition = (node: HexNode) => {
+    const container = containerRef.current;
+    if (!container) return { x: 0, y: 0 };
+    const { width, height } = container.getBoundingClientRect();
+    const { x, y } = hexToPixel(node.q, node.r);
+    return {
+      x: width / 2 + viewState.x + x * viewState.zoom,
+      y: height / 2 + viewState.y + y * viewState.zoom,
+    };
+  };
+
+  // Calculate connection lines between parent-child nodes
+  const connectionLines = Object.entries(visibleNodes)
+    .filter(([, node]) => node.parentId && nodes[node.parentId])
+    .map(([key, node]) => {
+      const parent = nodes[node.parentId!];
+      const childPos = hexToPixel(node.q, node.r);
+      const parentPos = hexToPixel(parent.q, parent.r);
+      const style = NODE_TYPES[node.type] || NODE_TYPES.default;
+      return {
+        key,
+        x1: parentPos.x,
+        y1: parentPos.y,
+        x2: childPos.x,
+        y2: childPos.y,
+        color: style.bgSolid,
+      };
+    });
 
   return (
     <div className="flex flex-col w-full h-screen bg-neutral-950 text-neutral-100 overflow-hidden font-sans select-none relative">
@@ -957,7 +1224,6 @@ export default function HexMindApp() {
         onMouseUp={() => setIsDragging(false)}
         onMouseLeave={() => {
           setIsDragging(false);
-          setHoveredNodeId(null);
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -974,6 +1240,32 @@ export default function HexMindApp() {
         >
           {/* Center wrapper for positioning */}
           <div className="absolute top-1/2 left-1/2" id="hex-canvas-layer">
+            {/* Connection Lines Layer */}
+            <svg
+              className="absolute pointer-events-none"
+              style={{
+                left: 0,
+                top: 0,
+                overflow: "visible",
+                width: 1,
+                height: 1,
+              }}
+            >
+              {connectionLines.map((line) => (
+                <line
+                  key={`line-${line.key}`}
+                  x1={line.x1}
+                  y1={line.y1}
+                  x2={line.x2}
+                  y2={line.y2}
+                  stroke={line.color}
+                  strokeWidth={2}
+                  strokeOpacity={0.3}
+                  strokeLinecap="round"
+                />
+              ))}
+            </svg>
+
             {/* Nodes Layer */}
             {Object.entries(visibleNodes).map(([key, node]) => {
               const { x, y } = hexToPixel(node.q, node.r);
@@ -997,64 +1289,82 @@ export default function HexMindApp() {
                     width: HEX_WIDTH,
                     height: HEX_HEIGHT,
                     transform: "translate(-50%, -50%)",
-                    zIndex: isSelected ? 20 : 10,
+                    zIndex: isSelected ? 20 : isHovered ? 15 : 10,
                   }}
-                  className={`absolute group transition-all duration-300 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
+                  className={`absolute group transition-all duration-200 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
                   onMouseEnter={() => setHoveredNodeId(key)}
                   onMouseLeave={() => setHoveredNodeId(null)}
                 >
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleNodeClick(key, node);
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      handleDeepDive(node);
-                    }}
-                    className={`
-                      relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
-                      transition-transform duration-300
-                      ${isHovered ? "scale-110" : "hover:scale-105"}
-                      ${isLoading ? "animate-pulse" : ""}
-                    `}
-                  >
-                    <svg
-                      className="absolute inset-0 w-full h-full drop-shadow-xl"
-                      viewBox="0 0 173.2 200"
-                    >
-                      <path
-                        d="M86.6 0L173.2 50V150L86.6 200L0 150V50L86.6 0Z"
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNodeClick(key, node);
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          handleDeepDive(node);
+                        }}
                         className={`
-                          transition-all duration-300
-                          ${
-                            node.pinned
-                              ? "text-neutral-800 stroke-amber-400 stroke-[4]"
-                              : isSelected
-                                ? `text-neutral-800 ${style.border} stroke-[3]`
-                                : `text-neutral-900/90 stroke-neutral-700 stroke-[1]`
-                          }
-                          ${style.bg}
+                          relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
+                          transition-transform duration-200
+                          ${isSelected ? "scale-110" : isHovered ? "scale-105" : ""}
+                          ${isLoading ? "animate-pulse" : ""}
                         `}
-                        fill="currentColor"
-                      />
-                    </svg>
+                      >
+                        <svg
+                          className="absolute inset-0 w-full h-full drop-shadow-lg"
+                          viewBox="0 0 173.2 200"
+                        >
+                          <path
+                            d="M86.6 0L173.2 50V150L86.6 200L0 150V50L86.6 0Z"
+                            className={`
+                              transition-all duration-200
+                              ${
+                                node.pinned
+                                  ? "fill-neutral-800 stroke-amber-400 stroke-[4]"
+                                  : isSelected
+                                    ? `fill-neutral-800 ${style.border} stroke-[3]`
+                                    : isHovered
+                                      ? `fill-neutral-850 ${style.border} stroke-[2]`
+                                      : `fill-neutral-900 stroke-neutral-700 stroke-[1]`
+                              }
+                            `}
+                          />
+                          {/* Inner glow for selected/hovered */}
+                          {(isSelected || isHovered) && (
+                            <path
+                              d="M86.6 10L163.2 55V145L86.6 190L10 145V55L86.6 10Z"
+                              className={`${style.bg} stroke-none`}
+                            />
+                          )}
+                        </svg>
 
-                    <div className="relative z-10 flex flex-col items-center gap-0.5 pointer-events-none">
-                      {isLoading ? (
-                        <Loader2 className={`w-5 h-5 animate-spin ${style.color}`} />
-                      ) : (
-                        <>
-                          <Icon className={`w-3.5 h-3.5 mb-1 ${style.color} opacity-80`} />
-                          <span
-                            className={`text-[9px] font-bold leading-3 line-clamp-2 uppercase tracking-wide px-1 ${node.pinned ? "text-white" : "text-neutral-300"}`}
-                          >
-                            {node.text}
-                          </span>
-                        </>
+                        <div className="relative z-10 flex flex-col items-center gap-1 pointer-events-none px-3 max-w-[140px]">
+                          {isLoading ? (
+                            <Loader2 className={`w-6 h-6 animate-spin ${style.color}`} />
+                          ) : (
+                            <>
+                              <Icon className={`w-4 h-4 ${style.color} opacity-90 shrink-0`} />
+                              <span
+                                className={`text-[11px] font-bold leading-tight line-clamp-3 uppercase tracking-wide text-center ${node.pinned ? "text-white" : "text-neutral-200"}`}
+                                style={{ wordBreak: 'break-word' }}
+                              >
+                                {node.text}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p className="font-semibold">{node.text}</p>
+                      {node.description && (
+                        <p className="text-xs text-neutral-400 mt-1">{node.description}</p>
                       )}
-                    </div>
-                  </div>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               );
             })}
@@ -1066,7 +1376,121 @@ export default function HexMindApp() {
             )}
           </div>
         </div>
+
+        {/* Floating Action Bar */}
+        {activeNode && selectedNodeId && !editingNodeId && (
+          <FloatingActionBar
+            node={activeNode}
+            nodeKey={activeNodeKey!}
+            position={getNodeScreenPosition(activeNode)}
+            onExpand={() => generateNeighbors(activeNode)}
+            onRefresh={() => generateNeighbors(activeNode, true)}
+            onPin={() => {
+              commitNodes({
+                ...nodes,
+                [activeNodeKey!]: { ...activeNode, pinned: !activeNode.pinned },
+              });
+            }}
+            onEdit={() => {
+              setEditingNodeId(activeNodeKey);
+              setEditTitle(activeNode.text);
+              setEditDesc(activeNode.description || "");
+            }}
+            onPrune={() => pruneNode(activeNodeKey!)}
+            onDeepDive={() => handleDeepDive(activeNode)}
+            onAdd={() => handleManualAdd(activeNode)}
+            isLoading={loadingNode === activeNodeKey}
+          />
+        )}
       </main>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={!!editingNodeId}
+        onClose={() => setEditingNodeId(null)}
+        title="Edit Node"
+        maxWidth="max-w-md"
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+              Title
+            </label>
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="bg-neutral-800 border-white/10 text-white"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+              Description
+            </label>
+            <textarea
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              className="w-full bg-neutral-800 border border-white/10 rounded-md p-3 text-sm text-neutral-300 h-24 resize-none outline-none focus:border-indigo-500"
+            />
+          </div>
+          
+          {/* Type Selector */}
+          {editingNodeId && nodes[editingNodeId] && (
+            <div>
+              <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+                Type
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.values(NODE_TYPES).filter(t => t.id !== 'default').map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => {
+                      if (editingNodeId) {
+                        commitNodes({
+                          ...nodes,
+                          [editingNodeId]: { ...nodes[editingNodeId], type: type.id },
+                        });
+                      }
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
+                      nodes[editingNodeId]?.type === type.id
+                        ? "bg-white/10 border-white/30 text-white"
+                        : "bg-white/5 border-transparent text-neutral-400 hover:bg-white/10"
+                    }`}
+                  >
+                    <type.icon className={`w-4 h-4 ${type.color}`} />
+                    <span className="text-xs">{type.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="ghost" onClick={() => setEditingNodeId(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (editingNodeId) {
+                  commitNodes({
+                    ...nodes,
+                    [editingNodeId]: {
+                      ...nodes[editingNodeId],
+                      text: editTitle,
+                      description: editDesc,
+                    },
+                  });
+                }
+                setEditingNodeId(null);
+              }}
+              className="bg-indigo-600 hover:bg-indigo-500"
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* WELCOME MODAL */}
       <Modal
@@ -1099,15 +1523,15 @@ export default function HexMindApp() {
             <ul className="text-sm text-neutral-300 space-y-2">
               <li className="flex items-center gap-2">
                 <MousePointer2 className="w-4 h-4 text-indigo-400" /> Click any hex
-                to generate neighbors
+                to select, click again to expand
               </li>
               <li className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" /> Double-click for a
                 Deep Dive analysis
               </li>
               <li className="flex items-center gap-2">
-                <Pin className="w-4 h-4 text-green-400" /> Pin nodes to keep them
-                safe from regeneration
+                <Pin className="w-4 h-4 text-green-400" /> Pin nodes to protect them
+                from regeneration
               </li>
             </ul>
           </div>
@@ -1132,180 +1556,25 @@ export default function HexMindApp() {
         </div>
       </Modal>
 
-      {/* Floating Info Panel */}
-      {activeNode && (
-        <div
-          aria-label="Node Information Panel"
-          className="interactive-ui absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 w-[calc(100vw-2rem)] sm:w-80 max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-300"
-        >
-          <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-            <div
-              className={`h-1.5 w-full ${(NODE_TYPES[activeNode.type] || NODE_TYPES.default).bg.replace("fill-", "bg-").replace("/10", "")}`}
-            />
-
-            {editingNodeId === (selectedNodeId || hoveredNodeId) ? (
-              <div className="p-4 flex flex-col gap-3">
-                <Input
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="bg-neutral-800 border-white/10 text-sm font-bold text-white"
-                  autoFocus
-                />
-                <textarea
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  className="bg-neutral-800 border border-white/10 rounded-md p-2 text-xs text-neutral-300 h-20 resize-none outline-none"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => {
-                      if (editingNodeId) {
-                        commitNodes({
-                          ...nodes,
-                          [editingNodeId]: {
-                            ...nodes[editingNodeId],
-                            text: editTitle,
-                            description: editDesc,
-                          },
-                        });
-                      }
-                      setEditingNodeId(null);
-                    }}
-                    className="flex-1 bg-green-600 text-white"
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setEditingNodeId(null)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="p-5 relative">
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-2">
-                    {/* Type Selector Trigger */}
-                    <button
-                      onClick={() => setShowTypeSelector(!showTypeSelector)}
-                      className="flex items-center gap-1 hover:bg-white/5 p-1 -ml-1 rounded transition-colors group"
-                    >
-                      {(() => {
-                        const TIcon =
-                          (NODE_TYPES[activeNode.type] || NODE_TYPES.default).icon;
-                        return (
-                          <TIcon
-                            className={`w-4 h-4 ${(NODE_TYPES[activeNode.type] || NODE_TYPES.default).color}`}
-                          />
-                        );
-                      })()}
-                      <ChevronDown className="w-3 h-3 text-neutral-600 group-hover:text-neutral-400" />
-                    </button>
-
-                    <h3 className="font-bold text-lg text-white leading-tight">
-                      {activeNode.text}
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => setSelectedNodeId(null)}
-                    className="text-neutral-500 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Type Selector Dropdown */}
-                {showTypeSelector && (
-                  <div className="absolute top-12 left-5 z-40 bg-neutral-800 border border-white/10 rounded-xl shadow-xl p-2 grid grid-cols-2 gap-2 animate-in fade-in zoom-in-95">
-                    {Object.values(NODE_TYPES).map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() =>
-                          updateNodeType(selectedNodeId || hoveredNodeId || "", type.id)
-                        }
-                        className={`flex items-center gap-2 p-2 rounded hover:bg-white/10 text-xs ${activeNode.type === type.id ? "bg-white/10 text-white" : "text-neutral-400"}`}
-                      >
-                        <type.icon className={`w-3 h-3 ${type.color}`} />
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <p className="text-sm text-neutral-400 leading-relaxed mb-6">
-                  {activeNode.description || "No description."}
-                </p>
-
-                <div className="grid grid-cols-4 gap-2">
-                  <button
-                    onClick={() =>
-                      commitNodes({
-                        ...nodes,
-                        [selectedNodeId || hoveredNodeId || ""]: {
-                          ...activeNode,
-                          pinned: !activeNode.pinned,
-                        },
-                      })
-                    }
-                    className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${activeNode.pinned ? "bg-amber-500/20 border-amber-500 text-amber-200" : "bg-white/5 border-transparent text-neutral-400 hover:bg-white/10"}`}
-                  >
-                    <Pin className="w-4 h-4 mb-1" />{" "}
-                    <span className="text-[9px] uppercase font-bold">Pin</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingNodeId(selectedNodeId || hoveredNodeId);
-                      setEditTitle(activeNode.text);
-                      setEditDesc(activeNode.description || "");
-                    }}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 text-neutral-400 hover:bg-white/10 transition-all"
-                  >
-                    <Edit3 className="w-4 h-4 mb-1" />{" "}
-                    <span className="text-[9px] uppercase font-bold">Edit</span>
-                  </button>
-                  <button
-                    onClick={() => handleManualAdd(activeNode)}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 text-neutral-400 hover:bg-white/10 transition-all"
-                  >
-                    <Plus className="w-4 h-4 mb-1" />{" "}
-                    <span className="text-[9px] uppercase font-bold">Add</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeepDive(activeNode)}
-                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20"
-                  >
-                    <BookOpen className="w-4 h-4 mb-1" />{" "}
-                    <span className="text-[9px] uppercase font-bold">Deep</span>
-                  </button>
-                </div>
-
-                {/* Graph Management Tools */}
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => refocusNode(activeNode)}
-                    className="flex items-center justify-center gap-1 p-2 rounded-xl bg-white/5 text-neutral-400 hover:bg-white/10 transition-all text-[9px] uppercase font-bold"
-                    title="Re-root map here"
-                  >
-                    <Crosshair className="w-3 h-3" /> Focus
-                  </button>
-                  <button
-                    onClick={() => pruneNode(selectedNodeId || hoveredNodeId || "")}
-                    className="flex items-center justify-center gap-1 p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all text-[9px] uppercase font-bold"
-                  >
-                    <Scissors className="w-3 h-3" /> Prune
-                  </button>
-                  <button
-                    onClick={() => generateNeighbors(activeNode, true)}
-                    className="flex items-center justify-center gap-1 p-2 rounded-xl bg-white/5 text-neutral-400 hover:bg-white/10 transition-all text-[9px] uppercase font-bold"
-                  >
-                    <RefreshCw className="w-3 h-3" /> Retry
-                  </button>
-                </div>
-              </div>
-            )}
+      {/* Node Info Panel (Bottom Right) - Shows on hover without selection */}
+      {hoveredNodeId && !selectedNodeId && nodes[hoveredNodeId] && (
+        <div className="absolute bottom-4 right-4 z-20 w-72 pointer-events-none animate-in fade-in duration-150">
+          <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              {(() => {
+                const node = nodes[hoveredNodeId];
+                const style = NODE_TYPES[node.type] || NODE_TYPES.default;
+                const Icon = style.icon;
+                return <Icon className={`w-4 h-4 ${style.color}`} />;
+              })()}
+              <h3 className="font-semibold text-white truncate">
+                {nodes[hoveredNodeId].text}
+              </h3>
+            </div>
+            <p className="text-sm text-neutral-400 line-clamp-3">
+              {nodes[hoveredNodeId].description || "No description"}
+            </p>
+            <p className="text-xs text-neutral-600 mt-2">Click to select • Double-click for deep dive</p>
           </div>
         </div>
       )}
@@ -1314,10 +1583,14 @@ export default function HexMindApp() {
       <Modal
         isOpen={!!deepDiveContent || isDeepDiveLoading}
         onClose={() => setDeepDiveContent(null)}
-        title={deepDiveTitle}
+        title={`Deep Dive: ${deepDiveTitle}`}
+        maxWidth="max-w-3xl"
       >
         {isDeepDiveLoading ? (
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-400" />
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mb-4" />
+            <p className="text-neutral-400">Analyzing...</p>
+          </div>
         ) : (
           <div className="prose prose-invert prose-sm max-w-none">
             <ReactMarkdown>{deepDiveContent || ""}</ReactMarkdown>
@@ -1422,6 +1695,7 @@ export default function HexMindApp() {
         onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         onConfirm={confirmModal.onConfirm}
         title={confirmModal.title}
+        message={confirmModal.message}
       />
     </div>
   );
