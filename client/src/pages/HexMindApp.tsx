@@ -51,6 +51,10 @@ import {
   Clock,
   Keyboard,
   Filter,
+  Share2,
+  Link,
+  Copy,
+  Check,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -615,6 +619,11 @@ export default function HexMindApp() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
 
+  // Share modal
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
   // Viewport culling effect
   useEffect(() => {
     const container = containerRef.current;
@@ -661,6 +670,8 @@ export default function HexMindApp() {
     } catch (e) {
       console.error("Failed to load sessions:", e);
     }
+    // Load shared brainstorm from URL if present
+    loadFromUrl();
   }, []);
 
   // Auto-save current session
@@ -1275,6 +1286,43 @@ Be comprehensive but focused on the user's specific request.`;
     setShowTemplates(false);
   };
 
+  // Share functions
+  const generateShareUrl = () => {
+    const data = {
+      nodes,
+      viewState,
+      creativity,
+    };
+    const compressed = btoa(JSON.stringify(data));
+    const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(compressed)}`;
+    setShareUrl(url);
+    setShowShareModal(true);
+  };
+
+  const copyShareUrl = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const loadFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    const shareData = params.get('share');
+    if (shareData) {
+      try {
+        const decoded = JSON.parse(atob(decodeURIComponent(shareData)));
+        if (decoded.nodes && Object.keys(decoded.nodes).length > 0) {
+          commitNodes(decoded.nodes);
+          if (decoded.viewState) setViewState(decoded.viewState);
+          if (decoded.creativity !== undefined) setCreativity(decoded.creativity);
+          setShowWelcome(false);
+        }
+      } catch (e) {
+        console.error('Failed to load shared brainstorm:', e);
+      }
+    }
+  };
+
   const handleManualAdd = (parentNode: HexNode) => {
     for (const dir of DIRECTIONS) {
       const nQ = parentNode.q + dir.q;
@@ -1601,6 +1649,18 @@ Be comprehensive but focused on the user's specific request.`;
                     </label>
                   </TooltipTrigger>
                   <TooltipContent>Import JSON</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={generateShareUrl}
+                      disabled={Object.keys(nodes).length === 0}
+                      className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Share Link</TooltipContent>
                 </Tooltip>
               </div>
             </div>
@@ -2569,6 +2629,44 @@ Be comprehensive but focused on the user's specific request.`;
                 <span className="text-xs text-neutral-500">Two fingers</span>
               </div>
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Share Modal */}
+      <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Share Brainstorm">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-400">
+            Share this link with others to let them view and continue your brainstorm:
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={shareUrl}
+              readOnly
+              className="flex-1 bg-neutral-800 border-white/10 text-white font-mono text-sm"
+              onClick={(e) => e.currentTarget.select()}
+            />
+            <Button
+              onClick={copyShareUrl}
+              className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="text-xs text-neutral-500 space-y-1">
+            <p>💡 The link contains your entire brainstorm encoded in the URL</p>
+            <p>🔒 No server storage - everything is client-side</p>
+            <p>⚡ Recipients can view and expand your ideas</p>
           </div>
         </div>
       </Modal>
