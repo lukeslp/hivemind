@@ -48,6 +48,7 @@ import {
   FolderOpen,
   Eye,
   EyeOff,
+  Clock,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -666,25 +667,7 @@ export default function HexMindApp() {
     }
   }, [nodes, viewState, creativity]);
 
-  // Load autosave on mount
-  useEffect(() => {
-    try {
-      const autosave = localStorage.getItem(AUTOSAVE_KEY);
-      if (autosave) {
-        const data = JSON.parse(autosave);
-        if (data.nodes && Object.keys(data.nodes).length > 0) {
-          setNodes(data.nodes);
-          setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
-          setCreativity(data.creativity || 0.5);
-          setShowWelcome(false);
-          setHistory([data.nodes]);
-          setHistoryIndex(0);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load autosave:", e);
-    }
-  }, []);
+  // Auto-load is disabled - users must manually load sessions via the folder icon
 
   // --- Session Management ---
   const saveSession = (name: string) => {
@@ -725,6 +708,26 @@ export default function HexMindApp() {
       }
     } catch (e) {
       console.error("Failed to load session:", e);
+    }
+  };
+
+  const loadAutosave = () => {
+    try {
+      const autosave = localStorage.getItem(AUTOSAVE_KEY);
+      if (autosave) {
+        const data = JSON.parse(autosave);
+        if (data.nodes && Object.keys(data.nodes).length > 0) {
+          setNodes(data.nodes);
+          setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
+          setCreativity(data.creativity || 0.5);
+          setShowWelcome(false);
+          setHistory([data.nodes]);
+          setHistoryIndex(0);
+          setShowSessionsModal(false);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load autosave:", e);
     }
   };
 
@@ -1939,79 +1942,99 @@ Be comprehensive but focused on the user's specific request.`;
         </div>
       </Modal>
 
-      {/* Rich Hover Modal - Shows full node details on hover */}
-      {hoveredNodeId && nodes[hoveredNodeId] && (
-        <Modal
-          isOpen={true}
-          onClose={() => setHoveredNodeId(null)}
-          title={nodes[hoveredNodeId].text}
-          maxWidth="max-w-2xl"
+      {/* Rich Hover Panel - Shows full node details on hover */}
+      {hoveredNodeId && nodes[hoveredNodeId] && hoveredNodeId !== selectedNodeId && (
+        <div 
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[600px] max-h-[80vh] overflow-y-auto pointer-events-none animate-in fade-in duration-200"
+          onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
         >
-          <div className="flex flex-col gap-6">
-            {/* Node Type Badge */}
-            <div className="flex items-center gap-2">
-              {(() => {
-                const node = nodes[hoveredNodeId];
-                const style = NODE_TYPES[node.type] || NODE_TYPES.default;
-                const Icon = style.icon;
-                return (
-                  <>
-                    <div className={`p-2 rounded-lg ${style.bg} ${style.border} border`}>
-                      <Icon className={`w-5 h-5 ${style.color}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">{node.type.toUpperCase()}</p>
-                      <p className="text-xs text-neutral-500">Depth: {node.depth}</p>
-                    </div>
-                  </>
-                );
-              })()}
-              {nodes[hoveredNodeId].pinned && (
-                <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/20 border border-amber-500/50">
-                  <Pin className="w-3 h-3 text-amber-400" />
-                  <span className="text-xs text-amber-400 font-medium">Pinned</span>
+          <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
+            {/* Header with close button */}
+            <div className="flex items-start justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white pr-8">{nodes[hoveredNodeId].text}</h2>
+              <button
+                onClick={() => setHoveredNodeId(null)}
+                className="text-neutral-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {/* Node Type Badge */}
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const node = nodes[hoveredNodeId];
+                  const style = NODE_TYPES[node.type] || NODE_TYPES.default;
+                  const Icon = style.icon;
+                  return (
+                    <>
+                      <div className={`p-3 rounded-xl ${style.bg} ${style.border} border-2`}>
+                        <Icon className={`w-6 h-6 ${style.color}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{node.type.toUpperCase()}</p>
+                        <p className="text-xs text-neutral-500">Depth: {node.depth}</p>
+                      </div>
+                    </>
+                  );
+                })()}
+                {nodes[hoveredNodeId].pinned && (
+                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/50">
+                    <Pin className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-amber-400 font-bold">PINNED</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Description</h4>
+                <p className="text-base text-neutral-200 leading-relaxed">
+                  {nodes[hoveredNodeId].description || "No description available."}
+                </p>
+              </div>
+
+              {/* Node Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-xs text-neutral-500 mb-2 font-semibold">Coordinates</p>
+                  <p className="text-lg font-mono text-white font-bold">
+                    q: {nodes[hoveredNodeId].q}, r: {nodes[hoveredNodeId].r}
+                  </p>
                 </div>
-              )}
-            </div>
-
-            {/* Description */}
-            <div>
-              <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Description</h4>
-              <p className="text-neutral-300 leading-relaxed">
-                {nodes[hoveredNodeId].description || "No description available."}
-              </p>
-            </div>
-
-            {/* Node Coordinates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                <p className="text-xs text-neutral-500 mb-1">Coordinates</p>
-                <p className="text-sm font-mono text-white">
-                  q: {nodes[hoveredNodeId].q}, r: {nodes[hoveredNodeId].r}
-                </p>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-xs text-neutral-500 mb-2 font-semibold">Neighbors</p>
+                  <p className="text-lg font-mono text-white font-bold">
+                    {DIRECTIONS.filter(dir => {
+                      const nKey = getNodeKey(nodes[hoveredNodeId].q + dir.q, nodes[hoveredNodeId].r + dir.r);
+                      return nodes[nKey] !== undefined;
+                    }).length} / 6
+                  </p>
+                </div>
               </div>
-              <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                <p className="text-xs text-neutral-500 mb-1">Neighbors</p>
-                <p className="text-sm font-mono text-white">
-                  {DIRECTIONS.filter(dir => {
-                    const nKey = getNodeKey(nodes[hoveredNodeId].q + dir.q, nodes[hoveredNodeId].r + dir.r);
-                    return nodes[nKey] !== undefined;
-                  }).length} / 6
-                </p>
-              </div>
-            </div>
 
-            {/* Action Hints */}
-            <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4">
-              <p className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Quick Actions</p>
-              <ul className="text-sm text-neutral-300 space-y-1">
-                <li>• <strong>Click</strong> to expand and generate neighbors</li>
-                <li>• <strong>Double-click</strong> for deep dive analysis</li>
-                <li>• <strong>Drag</strong> onto another node to merge ideas</li>
-              </ul>
+              {/* Action Hints */}
+              <div className="bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 rounded-xl p-5">
+                <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-3">Quick Actions</p>
+                <ul className="text-sm text-neutral-200 space-y-2">
+                  <li className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                    <strong>Click</strong> to expand and generate neighbors
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                    <strong>Double-click</strong> for deep dive analysis
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-pink-400"></div>
+                    <strong>Drag</strong> onto another node to merge ideas
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
-        </Modal>
+        </div>
       )}
 
       {/* Modals */}
@@ -2140,6 +2163,40 @@ Be comprehensive but focused on the user's specific request.`;
         title="Saved Sessions"
       >
         <div className="flex flex-col gap-4">
+          {/* Load Autosave */}
+          {(() => {
+            try {
+              const autosave = localStorage.getItem(AUTOSAVE_KEY);
+              if (autosave) {
+                const data = JSON.parse(autosave);
+                if (data.nodes && Object.keys(data.nodes).length > 0) {
+                  return (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-amber-400">Auto-saved Session</p>
+                          <p className="text-xs text-neutral-400">
+                            {Object.keys(data.nodes).length} nodes • Last saved: {new Date(data.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <Button
+                          onClick={loadAutosave}
+                          className="bg-amber-600 hover:bg-amber-500 text-white"
+                          size="sm"
+                        >
+                          <Clock className="w-4 h-4 mr-2" /> Recover
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+              }
+            } catch (e) {
+              return null;
+            }
+            return null;
+          })()}
+
           {/* Save Current */}
           <div className="flex gap-2">
             <Input
