@@ -49,6 +49,8 @@ import {
   Eye,
   EyeOff,
   Clock,
+  Keyboard,
+  Filter,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -602,6 +604,12 @@ export default function HexMindApp() {
   const [showSessionsModal, setShowSessionsModal] = useState(false);
   const [sessionName, setSessionName] = useState("");
 
+  // Keyboard shortcuts modal
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+
+  // Filter state
+  const [filterType, setFilterType] = useState<string | null>(null);
+
   // Viewport culling effect
   useEffect(() => {
     const container = containerRef.current;
@@ -852,6 +860,12 @@ export default function HexMindApp() {
       if (e.key === "Escape") {
         setSelectedNodeId(null);
         setEditingNodeId(null);
+        setShowKeyboardHelp(false);
+      }
+      // ? to show keyboard help
+      if (e.key === "?" && !editingNodeId) {
+        e.preventDefault();
+        setShowKeyboardHelp(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown, { passive: false });
@@ -953,8 +967,15 @@ Generate 6 diverse related ideas exploring different aspects.`;
         throw new Error(result.error.message || "API request failed");
       }
       
-      const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      console.log("Parsed text:", text);
+      let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      console.log("Raw API text:", text);
+      
+      // Strip markdown code fences if present
+      if (text) {
+        text = text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+      }
+      
+      console.log("Cleaned text:", text);
       let branches = [];
       
       try {
@@ -962,7 +983,7 @@ Generate 6 diverse related ideas exploring different aspects.`;
         branches = parsed.branches || [];
         console.log("Parsed branches:", branches);
       } catch (parseError) {
-        console.error("JSON parse error:", parseError, "Raw text:", text);
+        console.error("JSON parse error:", parseError, "Cleaned text:", text);
         branches = [];
       }
 
@@ -1352,6 +1373,46 @@ Be comprehensive but focused on the user's specific request.`;
     document.body.removeChild(a);
   };
 
+  const exportAsPNG = () => {
+    const svgContent = document.getElementById("hex-canvas-layer")?.innerHTML;
+    if (!svgContent) return;
+    
+    const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="2000" viewBox="-1000 -1000 2000 2000"><style>text { font-family: sans-serif; fill: white; } path { stroke: gray; fill: #222; }</style><g transform="translate(0,0)">${svgContent}</g></svg>`;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 2000;
+    canvas.height = 2000;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Fill background
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, 2000, 2000);
+    
+    const img = new Image();
+    const svgBlob = new Blob([fullSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const pngUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = pngUrl;
+        a.download = `hexmind-export-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(pngUrl);
+      });
+    };
+    
+    img.src = url;
+  };
+
   // Get active node and its screen position for floating action bar
   const activeNodeKey = selectedNodeId || hoveredNodeId;
   const activeNode = activeNodeKey ? nodes[activeNodeKey] : null;
@@ -1430,13 +1491,22 @@ Be comprehensive but focused on the user's specific request.`;
                 <FileText className="w-3 h-3" /> Build
               </button>
 
-              <button
-                onClick={exportAsImage}
-                className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
-                title="Export SVG"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={exportAsPNG}
+                  className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
+                  title="Export PNG"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={exportAsImage}
+                  className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg text-xs"
+                  title="Export SVG"
+                >
+                  SVG
+                </button>
+              </div>
 
               {/* Undo/Redo */}
               <div className="flex items-center gap-1 border-l border-white/10 pl-2">
@@ -1510,6 +1580,35 @@ Be comprehensive but focused on the user's specific request.`;
           )}
         </div>
 
+        {/* Filter Panel (Floating) */}
+        {filterType && (
+          <div className="interactive-ui pointer-events-auto absolute top-20 right-4 z-30 bg-neutral-900/90 backdrop-blur border border-white/10 p-3 rounded-xl animate-in slide-in-from-top-2 shadow-xl">
+            <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">Filter by Type</p>
+            <div className="space-y-1">
+              <button
+                onClick={() => setFilterType(null)}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm transition-colors text-white"
+              >
+                All Types
+              </button>
+              {Object.entries(NODE_TYPES).map(([key, type]) => {
+                if (key === 'default') return null;
+                const Icon = type.icon;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setFilterType(key)}
+                    className={`w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm transition-colors flex items-center gap-2 ${filterType === key ? 'bg-white/10' : ''}`}
+                  >
+                    <Icon className={`w-4 h-4 ${type.color}`} />
+                    <span className="text-white">{type.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Search Bar (Floating) */}
         {isSearchOpen && (
           <div className="interactive-ui pointer-events-auto absolute top-20 left-4 z-30 bg-neutral-900/90 backdrop-blur border border-white/10 p-2 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-2 w-64 shadow-xl">
@@ -1556,6 +1655,30 @@ Be comprehensive but focused on the user's specific request.`;
               className="w-16 sm:w-20"
             />
           </div>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setFilterType(filterType ? null : 'all')}
+                className={`p-3 bg-neutral-900/90 border border-white/10 rounded-xl transition-colors ${filterType ? 'bg-white/10' : 'hover:bg-white/5'}`}
+              >
+                <Filter className="w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Filter by Type</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setShowKeyboardHelp(true)}
+                className="p-3 bg-neutral-900/90 border border-white/10 rounded-xl hover:bg-white/5"
+              >
+                <Keyboard className="w-5 h-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Keyboard Shortcuts (?)</TooltipContent>
+          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1637,10 +1760,11 @@ Be comprehensive but focused on the user's specific request.`;
               const isHovered = hoveredNodeId === key;
               const isLoading = loadingNode === key;
 
-              // Search Dimming
+              // Search and Filter Dimming
               const isDimmed =
-                searchQuery &&
-                !node.text.toLowerCase().includes(searchQuery.toLowerCase());
+                (searchQuery &&
+                !node.text.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (filterType && filterType !== 'all' && node.type !== filterType);
 
               return (
                 <div
@@ -2254,6 +2378,88 @@ Be comprehensive but focused on the user's specific request.`;
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Keyboard Shortcuts Modal */}
+      <Modal
+        isOpen={showKeyboardHelp}
+        onClose={() => setShowKeyboardHelp(false)}
+        title="Keyboard Shortcuts"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">Navigation</h3>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Move between nodes</span>
+                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Arrow Keys</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Deselect node</span>
+                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Esc</kbd>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">Actions</h3>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Undo</span>
+                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Ctrl+Z</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Redo</span>
+                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Ctrl+Shift+Z</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Search</span>
+                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Ctrl+F</kbd>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">Interactions</h3>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Hover to see details</span>
+                <span className="text-xs text-neutral-500">Mouse hover</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Click to auto-expand</span>
+                <span className="text-xs text-neutral-500">Click node</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Double-click for Deep Dive</span>
+                <span className="text-xs text-neutral-500">Double-click</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Drag to merge nodes</span>
+                <span className="text-xs text-neutral-500">Drag & drop</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">View</h3>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Pan canvas</span>
+                <span className="text-xs text-neutral-500">Click & drag</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Zoom in/out</span>
+                <span className="text-xs text-neutral-500">Mouse wheel</span>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
+                <span className="text-sm">Pinch to zoom (mobile)</span>
+                <span className="text-xs text-neutral-500">Two fingers</span>
+              </div>
+            </div>
           </div>
         </div>
       </Modal>
