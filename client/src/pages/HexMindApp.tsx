@@ -2181,7 +2181,7 @@ Be comprehensive but focused on the user's specific request.`;
       {/* Rich Hover Panel - Shows full node details on hover */}
       {hoveredNodeId && nodes[hoveredNodeId] && hoveredNodeId !== selectedNodeId && (
         <div 
-          className="fixed bottom-20 right-4 z-50 w-[400px] max-h-[500px] overflow-y-auto pointer-events-none animate-in slide-in-from-bottom-2 duration-200"
+          className="fixed bottom-4 right-4 z-50 w-[400px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-none animate-in slide-in-from-bottom-2 duration-200"
           onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
         >
           <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
