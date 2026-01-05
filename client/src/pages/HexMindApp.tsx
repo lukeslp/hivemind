@@ -9,7 +9,7 @@
  * - Direct manipulation paradigm
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Plus,
   Loader2,
@@ -37,6 +37,8 @@ import {
   Undo2,
   Redo2,
   ChevronDown,
+  ChevronRight,
+  Image as ImageIcon,
   Target,
   Sparkles,
   BookOpen,
@@ -55,6 +57,7 @@ import {
   Link,
   Copy,
   Check,
+  Settings,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -64,6 +67,7 @@ import { TEMPLATES, TEMPLATE_CATEGORIES, Template } from "@/lib/templates";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -72,14 +76,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 // --- Constants & Config ---
 const HEX_SIZE = 80;
 const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
-const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";
+const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";  // Gemini
+// Gemini handles both text and image generation via same API key
 const STORAGE_KEY = "hexmind_sessions";
 const AUTOSAVE_KEY = "hexmind_autosave";
+
+// Cluster color palette for visual distinction
+const CLUSTER_COLORS = [
+  { stroke: "stroke-yellow-500", glow: "shadow-yellow-500/30", accent: "bg-yellow-500" },   // main cluster
+  { stroke: "stroke-cyan-400", glow: "shadow-cyan-400/30", accent: "bg-cyan-400" },         // cluster 2
+  { stroke: "stroke-pink-400", glow: "shadow-pink-400/30", accent: "bg-pink-400" },         // cluster 3
+  { stroke: "stroke-emerald-400", glow: "shadow-emerald-400/30", accent: "bg-emerald-400" }, // cluster 4
+  { stroke: "stroke-orange-400", glow: "shadow-orange-400/30", accent: "bg-orange-400" },   // cluster 5
+  { stroke: "stroke-violet-400", glow: "shadow-violet-400/30", accent: "bg-violet-400" },   // cluster 6
+];
 
 // Hex Directions (pointy-top hexagon neighbors)
 const DIRECTIONS = [
@@ -212,6 +228,11 @@ interface HexNode {
   depth: number;
   parentId?: string | null;
   pinned: boolean;
+  imageUrl?: string;
+  videoUrl?: string;
+  isKeyTheme?: boolean;
+  clusterId?: string;       // Identifies which cluster this node belongs to
+  isClusterRoot?: boolean;  // True for root nodes of each cluster
 }
 
 interface ViewState {
@@ -246,9 +267,9 @@ const ConfirmationModal = ({
       <DialogContent className="bg-neutral-900 border-white/10 max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-white">{title}</DialogTitle>
+          <DialogDescription className="text-neutral-400 text-sm">{message}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <p className="text-neutral-400 text-sm">{message}</p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>
               Cancel
@@ -273,12 +294,14 @@ const Modal = ({
   isOpen,
   onClose,
   title,
+  description,
   children,
   maxWidth = "max-w-2xl",
 }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  description?: string;
   children: React.ReactNode;
   maxWidth?: string;
 }) => {
@@ -289,6 +312,8 @@ const Modal = ({
       >
         <DialogHeader>
           <DialogTitle className="text-white">{title}</DialogTitle>
+          {description && <DialogDescription className="text-neutral-400">{description}</DialogDescription>}
+          {!description && <DialogDescription className="sr-only">{title} dialog</DialogDescription>}
         </DialogHeader>
         <div className="overflow-y-auto custom-scrollbar flex-1">{children}</div>
       </DialogContent>
@@ -400,31 +425,27 @@ const Minimap = ({
   );
 };
 
-// Floating Action Bar - appears near selected/hovered node
+// Floating Action Bar - simplified, appears near selected node
 const FloatingActionBar = ({
   node,
-  nodeKey,
   position,
-  onExpand,
   onRefresh,
-  onPin,
-  onEdit,
   onPrune,
-  onDeepDive,
-  onAdd,
+  onSettings,
+  onHelp,
   isLoading,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   node: HexNode;
-  nodeKey: string;
   position: { x: number; y: number };
-  onExpand: () => void;
   onRefresh: () => void;
-  onPin: () => void;
-  onEdit: () => void;
   onPrune: () => void;
-  onDeepDive: () => void;
-  onAdd: () => void;
+  onSettings: () => void;
+  onHelp: () => void;
   isLoading: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }) => {
   const style = NODE_TYPES[node.type] || NODE_TYPES.default;
 
@@ -436,103 +457,37 @@ const FloatingActionBar = ({
         top: position.y - 60,
         transform: "translateX(-50%)",
       }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl px-2 py-1.5 flex items-center gap-1">
-        {/* Expand/Generate */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onExpand}
-              disabled={isLoading}
-              className={`p-2 rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-white/10"} ${style.color}`}
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>AI Generate Neighbors</TooltipContent>
-        </Tooltip>
-
         {/* Refresh */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={onRefresh}
               disabled={isLoading}
-              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 transition-all"
+              aria-label="Refresh this tile"
+              className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-white/10"} ${style.color}`}
             >
-              <RefreshCw className="w-4 h-4" />
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
             </button>
           </TooltipTrigger>
-          <TooltipContent>Regenerate</TooltipContent>
+          <TooltipContent>Refresh</TooltipContent>
         </Tooltip>
 
-        <div className="w-px h-5 bg-white/10" />
-
-        {/* Pin */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onPin}
-              className={`p-2 rounded-full transition-all ${node.pinned ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-neutral-400"}`}
-            >
-              <Pin className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{node.pinned ? "Unpin" : "Pin"}</TooltipContent>
-        </Tooltip>
-
-        {/* Edit */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onEdit}
-              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 transition-all"
-            >
-              <Edit3 className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Edit</TooltipContent>
-        </Tooltip>
-
-        {/* Add Manual */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onAdd}
-              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Add Manual Child Node</TooltipContent>
-        </Tooltip>
-
-        <div className="w-px h-5 bg-white/10" />
-
-        {/* Deep Dive */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onDeepDive}
-              className="p-2 rounded-full hover:bg-indigo-500/20 text-indigo-400 transition-all"
-            >
-              <BookOpen className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Deep Dive Analysis</TooltipContent>
-        </Tooltip>
-
-        {/* Prune/Delete */}
+        {/* Delete */}
         {node.type !== "root" && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={onPrune}
-                className="p-2 rounded-full hover:bg-red-500/20 text-red-400 transition-all"
+                aria-label="Delete node"
+                className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-red-500/20 text-red-400 transition-all"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -540,6 +495,36 @@ const FloatingActionBar = ({
             <TooltipContent>Delete</TooltipContent>
           </Tooltip>
         )}
+
+        <div className="w-px h-5 bg-white/10" />
+
+        {/* Settings */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onSettings}
+              aria-label="Settings"
+              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-white/10 text-neutral-400 transition-all"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Settings</TooltipContent>
+        </Tooltip>
+
+        {/* Help */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onHelp}
+              aria-label="Help"
+              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-white/10 text-neutral-400 transition-all"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Help</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
@@ -549,6 +534,7 @@ export default function HexMindApp() {
   // --- State ---
   const [nodes, setNodes] = useState<Record<string, HexNode>>({});
   const [loadingNode, setLoadingNode] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState<string | null>(null);
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
   const [creativity, setCreativity] = useState(0.5);
@@ -568,14 +554,19 @@ export default function HexMindApp() {
   // Interaction State
   const [isDragging, setIsDragging] = useState(false);
   const [touchDistance, setTouchDistance] = useState(0);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null); // For action bar (clears on mouse leave)
+  // Detect touch device to prevent double-firing of touch + mouse events
+  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [showWelcome, setShowWelcome] = useState(true);
   const dragStart = useRef({ x: 0, y: 0 });
+  const hasDragged = useRef(false); // Track if mouse moved during drag (to distinguish click from pan)
   const containerRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Refs for state tracking during async ops
   const nodesRef = useRef(nodes);
@@ -618,11 +609,27 @@ export default function HexMindApp() {
   // Template selection
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null);
+  const [templateContext, setTemplateContext] = useState("");
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
 
   // Share modal
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Quick tour modal
+  const [showTour, setShowTour] = useState(false);
+
+  // Multi-cluster support
+  const [clusters, setClusters] = useState<string[]>(["main"]); // List of cluster IDs
+  const [showNewClusterModal, setShowNewClusterModal] = useState(false);
+  const [newClusterCoords, setNewClusterCoords] = useState<{ q: number; r: number } | null>(null);
+  const [newClusterInput, setNewClusterInput] = useState("");
+
+  // Smart expansion settings
+  const [enableSmartExpansion, setEnableSmartExpansion] = useState(true);
+  const [autoExpandingNodes, setAutoExpandingNodes] = useState<Set<string>>(new Set());
 
   // Viewport culling effect
   useEffect(() => {
@@ -895,7 +902,21 @@ export default function HexMindApp() {
     return { x, y };
   };
 
+  // Inverse conversion: screen coordinates to hex grid coordinates
+  const pixelToHex = (x: number, y: number) => {
+    const q = Math.round((Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE);
+    const r = Math.round((2 / 3 * y) / HEX_SIZE);
+    return { q, r };
+  };
+
   const getNodeKey = (q: number, r: number) => `${q},${r}`;
+
+  // Get cluster color palette for visual distinction
+  const getClusterColor = (clusterId: string | undefined) => {
+    if (!clusterId) return CLUSTER_COLORS[0]; // Default to main cluster color
+    const index = clusters.indexOf(clusterId);
+    return CLUSTER_COLORS[index % CLUSTER_COLORS.length];
+  };
 
   // --- Search Logic ---
   useEffect(() => {
@@ -942,16 +963,22 @@ export default function HexMindApp() {
           ? "Wild, abstract, and out-of-the-box"
           : "Balanced and creative";
     
-    // Improved prompt to ensure exactly 6 branches
+    // Improved prompt to ensure exactly 6 branches with smart expansion support
     const systemPrompt = `You are a brainstorming engine for a hexagonal mind map. Style: ${tempDesc}.
 Given a central idea, you MUST generate EXACTLY 6 distinct related nodes to fill all hexagonal neighbors.
 Each node should explore a different angle or aspect of the central idea.
 Types available: concept, action, technical, question, risk.
 Vary the types to create a diverse exploration.
 
-IMPORTANT: You MUST return exactly 6 branches, no more, no less.
+IMPORTANT:
+- You MUST return exactly 6 branches, no more, no less.
+- For each branch, assess its COMPLEXITY (1-5 scale):
+  1-2: Simple, specific concept (no expansion needed)
+  3: Moderate complexity (could benefit from expansion)
+  4-5: Rich, multi-faceted concept that SHOULD be expanded further
+- Mark branches with complexity 4-5 as "autoExpand": true (max 2 per generation)
 
-Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk" }, ... ] }`;
+Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false }, ... ] }`;
 
     const userQuery = `Central idea: "${centerNode.text}"
 Context: ${centerNode.description || "No additional context"}
@@ -1000,17 +1027,44 @@ Generate 6 diverse related ideas exploring different aspects.`;
       if (text) {
         text = text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
       }
-      
-      console.log("Cleaned text:", text);
+
+      // Sanitize common LLM JSON hallucinations (random words inserted after values)
+      const sanitizeJson = (jsonStr: string): string => {
+        // Remove stray words between property values and closing braces/brackets
+        // Matches: "value"\n  randomword\n} or "value"\n randomword\n]
+        let sanitized = jsonStr.replace(/("[\w\s-]+")\s*\n\s*[a-zA-Z]+\s*\n(\s*[}\]])/g, '$1\n$2');
+        // Also handle inline random words after values
+        sanitized = sanitized.replace(/("[\w\s-]+")\s+[a-zA-Z]+\s*([,}\]])/g, '$1$2');
+        return sanitized;
+      };
+
+      const sanitizedText = sanitizeJson(text);
+      console.log("Sanitized text:", sanitizedText);
       let branches = [];
-      
+
       try {
-        const parsed = text ? JSON.parse(text) : {};
+        const parsed = sanitizedText ? JSON.parse(sanitizedText) : {};
         branches = parsed.branches || [];
         console.log("Parsed branches:", branches);
       } catch (parseError) {
-        console.error("JSON parse error:", parseError, "Cleaned text:", text);
-        branches = [];
+        console.error("JSON parse error:", parseError, "Sanitized text:", sanitizedText);
+        // Try to extract branches using regex as fallback
+        try {
+          const branchMatches = sanitizedText.match(/"title"\s*:\s*"([^"]+)"/g) || [];
+          const descMatches = sanitizedText.match(/"description"\s*:\s*"([^"]+)"/g) || [];
+          const typeMatches = sanitizedText.match(/"type"\s*:\s*"([^"]+)"/g) || [];
+
+          for (let i = 0; i < Math.min(6, branchMatches.length); i++) {
+            branches.push({
+              title: branchMatches[i]?.match(/"title"\s*:\s*"([^"]+)"/)?.[1] || `Idea ${i + 1}`,
+              description: descMatches[i]?.match(/"description"\s*:\s*"([^"]+)"/)?.[1] || "",
+              type: typeMatches[i]?.match(/"type"\s*:\s*"([^"]+)"/)?.[1] || "concept",
+            });
+          }
+          console.log("Recovered branches via regex:", branches);
+        } catch {
+          branches = [];
+        }
       }
 
       // Ensure we have exactly 6 branches by padding if needed
@@ -1025,6 +1079,8 @@ Generate 6 diverse related ideas exploring different aspects.`;
 
       const currentNodes = nodesRef.current;
       const newNodes = { ...currentNodes };
+      const nodesToAutoExpand: HexNode[] = [];
+      const MAX_AUTO_EXPAND_DEPTH = 2; // Limit auto-expansion depth
 
       DIRECTIONS.forEach((dir, i) => {
         const nQ = centerNode.q + dir.q;
@@ -1037,20 +1093,54 @@ Generate 6 diverse related ideas exploring different aspects.`;
         if (shouldUpdate && branches[i]) {
           const nodeType = branches[i].type?.toLowerCase() || "concept";
           const validType = NODE_TYPES[nodeType] ? nodeType : "concept";
-          
-          newNodes[neighborKey] = {
+          const newDepth = (centerNode.depth || 0) + 1;
+
+          const newNode: HexNode = {
             q: nQ,
             r: nR,
             text: branches[i].title || `Idea ${i + 1}`,
             description: branches[i].description || "",
             type: validType,
-            depth: (centerNode.depth || 0) + 1,
+            depth: newDepth,
             parentId: key,
             pinned: false,
+            clusterId: centerNode.clusterId, // Inherit cluster from parent
           };
+
+          newNodes[neighborKey] = newNode;
+
+          // Track nodes marked for auto-expansion (only if smart expansion is enabled)
+          if (
+            enableSmartExpansion &&
+            branches[i].autoExpand &&
+            branches[i].complexity >= 4 &&
+            newDepth < MAX_AUTO_EXPAND_DEPTH &&
+            nodesToAutoExpand.length < 2 // Max 2 auto-expansions per generation
+          ) {
+            nodesToAutoExpand.push(newNode);
+          }
         }
       });
       commitNodes(newNodes);
+      if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+
+      // Auto-expand flagged nodes with staggered timing for visual effect
+      if (nodesToAutoExpand.length > 0) {
+        for (const expandNode of nodesToAutoExpand) {
+          const expandKey = getNodeKey(expandNode.q, expandNode.r);
+          setAutoExpandingNodes(prev => new Set([...Array.from(prev), expandKey]));
+
+          // Small delay for visual staggering
+          await new Promise(r => setTimeout(r, 300));
+          await generateNeighbors(expandNode, false);
+
+          setAutoExpandingNodes(prev => {
+            const next = new Set(prev);
+            next.delete(expandKey);
+            return next;
+          });
+        }
+      }
     } catch (error) {
       console.error("AI Error:", error);
       // On error, still populate with placeholder nodes
@@ -1083,24 +1173,174 @@ Generate 6 diverse related ideas exploring different aspects.`;
     }
   };
 
+  // Refresh a single node's title and description (not neighbors)
+  const refreshSingleNode = async (node: HexNode) => {
+    const key = getNodeKey(node.q, node.r);
+    if (loadingNode || node.pinned) return;
+    setLoadingNode(key);
+
+    const tempDesc =
+      creativity < 0.3
+        ? "Logical, concrete, and safe"
+        : creativity > 0.7
+          ? "Wild, abstract, and out-of-the-box"
+          : "Balanced and creative";
+
+    // Get parent context if available
+    const parent = node.parentId ? nodes[node.parentId] : null;
+    const parentContext = parent ? `Related to: "${parent.text}"` : "Root concept";
+
+    const systemPrompt = `You are a brainstorming engine. Style: ${tempDesc}.
+Given context about a node in a mind map, regenerate a fresh title and description for it.
+Keep the same general theme but offer a new perspective or angle.
+Return JSON: { "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk" }`;
+
+    const userQuery = `Current title: "${node.text}"
+Current description: ${node.description || "None"}
+${parentContext}
+Node type: ${node.type}
+Regenerate with a fresh perspective.`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.8 + (creativity * 0.5),
+            },
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error?.message || `HTTP ${response.status}`);
+      }
+
+      let text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        text = text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+      }
+
+      const parsed = text ? JSON.parse(text) : {};
+      const newNodes = { ...nodesRef.current };
+      newNodes[key] = {
+        ...node,
+        text: parsed.title || node.text,
+        description: parsed.description || node.description,
+        type: parsed.type && NODE_TYPES[parsed.type] ? parsed.type : node.type,
+      };
+      commitNodes(newNodes);
+      if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+    } catch (error) {
+      console.error("Refresh node error:", error);
+    } finally {
+      setLoadingNode(null);
+    }
+  };
+
+  // Generate image for a node using Gemini (Nano Banana)
+  const generateImage = async (node: HexNode) => {
+    const key = getNodeKey(node.q, node.r);
+    if (imageLoading) return;
+    setImageLoading(key);
+
+    const prompt = `Create a visually compelling illustration for: ${node.text}${node.description ? `. Context: ${node.description}` : ''}`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ["image", "text"],
+            }
+          })
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        throw new Error(result.error?.message || `HTTP ${response.status}`);
+      }
+
+      // Find the inline_data part with the image
+      const parts = result.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType?.startsWith('image/'));
+
+      if (imagePart?.inlineData) {
+        const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+        const newNodes = { ...nodesRef.current };
+        newNodes[key] = { ...node, imageUrl };
+        commitNodes(newNodes);
+        if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+      } else {
+        console.warn("No image in response:", result);
+      }
+    } catch (error) {
+      console.error("Image generation error:", error);
+    } finally {
+      setImageLoading(null);
+    }
+  };
+
   const handleDeepDive = async (node: HexNode) => {
     setDeepDiveTitle(node.text);
     setDeepDiveContent(null);
     setIsDeepDiveLoading(true);
 
-    const prompt = `Deep Dive Analysis: "${node.text}"
+    // Gather context from connected nodes
+    const connectedNodes = Object.values(nodes).filter(n =>
+      n.parentId === getNodeKey(node.q, node.r) ||
+      getNodeKey(node.q, node.r) === n.parentId
+    );
+    const contextFromNetwork = connectedNodes.length > 0
+      ? `\nRelated ideas in the brainstorm: ${connectedNodes.map(n => n.text).join(', ')}`
+      : '';
 
-Context: ${node.description || "No additional context"}
-Node Type: ${node.type}
+    const prompt = `# Deep Dive Analysis: "${node.text}"
 
-Provide a comprehensive analysis in Markdown format including:
-- Overview and significance
-- Key considerations
-- Potential approaches or solutions
-- Related concepts to explore
-- Questions to consider
+Context: ${node.description || "No additional context provided"}${contextFromNetwork}
+Category: ${node.type}
 
-Be thorough but concise.`;
+Create a comprehensive, well-structured analysis document that could stand alone as a reference. Use clear Markdown formatting.
+
+## Required Sections:
+
+### 1. Executive Summary
+A 2-3 sentence overview of what this concept is and why it matters.
+
+### 2. Core Concepts
+Explain the fundamental ideas, principles, or components. Define any important terms.
+
+### 3. Key Considerations
+What are the critical factors, trade-offs, or decisions involved? Include:
+- Advantages and benefits
+- Challenges and risks
+- Dependencies and prerequisites
+
+### 4. Implementation Approaches
+Practical strategies, methods, or steps to explore or execute this concept. Be specific and actionable.
+
+### 5. Related Concepts & Resources
+What adjacent ideas should be explored? What fields or domains does this connect to?
+
+### 6. Questions to Explore Further
+5-7 thought-provoking questions that would deepen understanding or guide next steps.
+
+### 7. Quick Reference
+Bullet-point summary of the most important takeaways.
+
+Write in a professional but accessible tone. Be thorough and substantive - this should be a useful reference document.`;
 
     try {
       const response = await fetch(
@@ -1274,8 +1514,84 @@ Be comprehensive but focused on the user's specific request.`;
     setShowWelcome(false);
   };
 
+  // Open template context prompt instead of loading directly
+  const selectTemplate = (template: Template) => {
+    setPendingTemplate(template);
+    setTemplateContext("");
+    setShowTemplates(false);
+  };
+
+  // Generate contextual template nodes via AI
+  const generateContextualTemplate = async () => {
+    if (!pendingTemplate || !templateContext.trim()) return;
+
+    setIsGeneratingTemplate(true);
+
+    const prompt = `You are helping create a brainstorming map. The user selected the "${pendingTemplate.name}" template and wants to apply it to: "${templateContext}"
+
+Based on this template structure, generate customized content:
+- Center node: The main topic adapted to their context
+- Surrounding nodes: Specific subtopics relevant to their context
+
+Template structure:
+${pendingTemplate.nodes.map(n => `- ${n.text}: ${n.description} (type: ${n.type})`).join('\n')}
+
+Respond with a JSON array of nodes, each with: text, description, type (concept/action/technical/question/risk), q, r coordinates (matching template positions).
+Keep descriptions concise (1-2 sentences). Make content specific to "${templateContext}", not generic.
+
+Example format:
+[{"q":0,"r":0,"text":"Dog Walker App","description":"Mobile platform connecting busy professionals with reliable dog walkers","type":"concept"},...]`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          }),
+        }
+      );
+
+      const result = await response.json();
+      const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (generatedText) {
+        const generatedNodes = JSON.parse(generatedText);
+        const newNodes: Record<string, HexNode> = {};
+
+        generatedNodes.forEach((gNode: { q: number; r: number; text: string; description: string; type: string }, index: number) => {
+          const key = getNodeKey(gNode.q, gNode.r);
+          newNodes[key] = {
+            q: gNode.q,
+            r: gNode.r,
+            text: gNode.text,
+            description: gNode.description,
+            type: index === 0 ? "root" : (gNode.type as HexNode["type"]) || "concept",
+            depth: gNode.q === 0 && gNode.r === 0 ? 0 : 1,
+            pinned: gNode.q === 0 && gNode.r === 0,
+          };
+        });
+
+        commitNodes(newNodes);
+        setViewState({ x: 0, y: 0, zoom: 1 });
+        setSelectedNodeId("0,0");
+        setInspectedNodeId("0,0");
+      }
+    } catch (error) {
+      console.error("Template generation error:", error);
+      toast.error("Failed to generate template. Please try again.");
+    } finally {
+      setIsGeneratingTemplate(false);
+      setPendingTemplate(null);
+      setTemplateContext("");
+    }
+  };
+
   const loadTemplate = (template: Template) => {
-    // Convert template nodes to HexNode format
+    // Convert template nodes to HexNode format (used for direct load without context)
     const newNodes: Record<string, HexNode> = {};
     template.nodes.forEach((tNode) => {
       const key = getNodeKey(tNode.q, tNode.r);
@@ -1289,11 +1605,44 @@ Be comprehensive but focused on the user's specific request.`;
         pinned: tNode.isPinned || false,
       };
     });
-    
+
     commitNodes(newNodes);
     setViewState({ x: 0, y: 0, zoom: 1 });
     setSelectedNodeId("0,0");
     setShowTemplates(false);
+  };
+
+  // Create a new cluster at the clicked location
+  const createNewCluster = () => {
+    if (!newClusterCoords || !newClusterInput.trim()) return;
+
+    const clusterId = `cluster_${Date.now()}`;
+    const key = getNodeKey(newClusterCoords.q, newClusterCoords.r);
+
+    const newNode: HexNode = {
+      q: newClusterCoords.q,
+      r: newClusterCoords.r,
+      text: newClusterInput.trim(),
+      description: "",
+      type: "root",
+      depth: 0,
+      pinned: true,
+      clusterId,
+      isClusterRoot: true,
+    };
+
+    commitNodes({ ...nodes, [key]: newNode });
+    setClusters([...clusters, clusterId]);
+    setShowNewClusterModal(false);
+    setNewClusterInput("");
+    setNewClusterCoords(null);
+    setSelectedNodeId(key);
+    setInspectedNodeId(key);
+
+    // Auto-generate neighbors for the new cluster
+    setTimeout(() => generateNeighbors(newNode), 100);
+
+    toast.success("New cluster created! Generating ideas...");
   };
 
   // Share functions
@@ -1343,7 +1692,7 @@ Be comprehensive but focused on the user's specific request.`;
           q: nQ,
           r: nR,
           text: "New Idea",
-          description: "Click to edit",
+          description: "",
           type: "concept",
           depth: parentNode.depth + 1,
           parentId: getNodeKey(parentNode.q, parentNode.r),
@@ -1352,27 +1701,29 @@ Be comprehensive but focused on the user's specific request.`;
         commitNodes({ ...nodes, [key]: newNode });
         setEditingNodeId(key);
         setEditTitle(newNode.text);
-        setEditDesc(newNode.description || "");
+        setEditDesc("");
         setSelectedNodeId(key);
+        setInspectedNodeId(key);
         return;
       }
     }
-    // All neighbors occupied - show message
+    // All neighbors occupied
+    toast.info("All adjacent slots are occupied. Try expanding from another tile or delete one first.");
   };
 
   const handleNodeClick = (key: string, node: HexNode) => {
-    // Check if this node has already generated neighbors
-    const hasNeighbors = DIRECTIONS.some(dir => {
+    // Always select the node and open info panel
+    setSelectedNodeId(key);
+    setInspectedNodeId(key);
+
+    // Check if ANY neighbors are empty (slots to fill)
+    const hasEmptyNeighbors = DIRECTIONS.some(dir => {
       const neighborKey = getNodeKey(node.q + dir.q, node.r + dir.r);
-      return nodes[neighborKey] !== undefined;
+      return nodes[neighborKey] === undefined;
     });
 
-    if (hasNeighbors || loadingNode === key) {
-      // Node already expanded or is generating - just select it to show action bar
-      setSelectedNodeId(key);
-    } else {
-      // First click on unexpanded node - auto-generate neighbors
-      setSelectedNodeId(key);
+    // Generate if there are empty slots and not already loading
+    if (hasEmptyNeighbors && loadingNode !== key) {
       generateNeighbors(node);
     }
   };
@@ -1382,11 +1733,13 @@ Be comprehensive but focused on the user's specific request.`;
     if (e.button !== 0 || (e.target as HTMLElement).closest(".interactive-ui"))
       return;
     setIsDragging(true);
+    hasDragged.current = false; // Reset drag tracking
     dragStart.current = { x: e.clientX - viewState.x, y: e.clientY - viewState.y };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
+    hasDragged.current = true; // Mouse moved while dragging = it's a pan, not a click
     setViewState((prev) => ({
       ...prev,
       x: e.clientX - dragStart.current.x,
@@ -1394,10 +1747,41 @@ Be comprehensive but focused on the user's specific request.`;
     }));
   };
 
+  // Handle click on empty canvas space to create new cluster
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    // Skip if dragging occurred, or if clicking on a node/UI element
+    if (hasDragged.current) return;
+    if ((e.target as HTMLElement).closest(".hex-node, .interactive-ui, .floating-action-bar")) return;
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Convert screen coordinates to canvas coordinates (accounting for pan and zoom)
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const screenX = (e.clientX - rect.left - centerX - viewState.x) / viewState.zoom;
+    const screenY = (e.clientY - rect.top - centerY - viewState.y) / viewState.zoom;
+
+    // Convert to hex coordinates
+    const hexCoords = pixelToHex(screenX, screenY);
+    const key = getNodeKey(hexCoords.q, hexCoords.r);
+
+    // Only open modal if this slot is empty
+    if (!nodes[key]) {
+      setNewClusterCoords(hexCoords);
+      setShowNewClusterModal(true);
+    }
+  };
+
+  // Track touch position for tap detection
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest(".interactive-ui")) return;
     if (e.touches.length === 1) {
       setIsDragging(true);
+      hasDragged.current = false;
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       dragStart.current = {
         x: e.touches[0].clientX - viewState.x,
         y: e.touches[0].clientY - viewState.y,
@@ -1412,6 +1796,7 @@ Be comprehensive but focused on the user's specific request.`;
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 1 && isDragging) {
+      hasDragged.current = true;
       setViewState((prev) => ({
         ...prev,
         x: e.touches[0].clientX - dragStart.current.x,
@@ -1431,18 +1816,47 @@ Be comprehensive but focused on the user's specific request.`;
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    // Check for tap (no drag) on empty space
+    if (!hasDragged.current && touchStartPos.current) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".hex-node, .interactive-ui, .floating-action-bar")) {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const screenX = (touchStartPos.current.x - rect.left - centerX - viewState.x) / viewState.zoom;
+          const screenY = (touchStartPos.current.y - rect.top - centerY - viewState.y) / viewState.zoom;
+          const hexCoords = pixelToHex(screenX, screenY);
+          const key = getNodeKey(hexCoords.q, hexCoords.r);
+          if (!nodes[key]) {
+            setNewClusterCoords(hexCoords);
+            setShowNewClusterModal(true);
+          }
+        }
+      }
+    }
+    touchStartPos.current = null;
     setIsDragging(false);
     setTouchDistance(0);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    setViewState((prev) => ({
-      ...prev,
-      zoom: Math.min(Math.max(prev.zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.1), 3),
-    }));
-  };
+  // Wheel handler (uses native event for non-passive listener)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setViewState((prev) => ({
+        ...prev,
+        zoom: Math.min(Math.max(prev.zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.1), 3),
+      }));
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, []);
 
   const exportAsImage = () => {
     const svgContent = document.getElementById("hex-canvas-layer")?.innerHTML;
@@ -1499,8 +1913,11 @@ Be comprehensive but focused on the user's specific request.`;
   };
 
   // Get active node and its screen position for floating action bar
-  const activeNodeKey = selectedNodeId || hoveredNodeId;
+  const activeNodeKey = selectedNodeId || inspectedNodeId;
   const activeNode = activeNodeKey ? nodes[activeNodeKey] : null;
+
+  // Hovered node for action bar (shows on hover, hides on leave)
+  const hoveredNode = hoveredNodeId ? nodes[hoveredNodeId] : null;
   
   const getNodeScreenPosition = (node: HexNode) => {
     const container = containerRef.current;
@@ -1514,22 +1931,24 @@ Be comprehensive but focused on the user's specific request.`;
   };
 
   // Calculate connection lines between parent-child nodes
-  const connectionLines = Object.entries(visibleNodes)
-    .filter(([, node]) => node.parentId && nodes[node.parentId])
-    .map(([key, node]) => {
-      const parent = nodes[node.parentId!];
-      const childPos = hexToPixel(node.q, node.r);
-      const parentPos = hexToPixel(parent.q, parent.r);
-      const style = NODE_TYPES[node.type] || NODE_TYPES.default;
-      return {
-        key,
-        x1: parentPos.x,
-        y1: parentPos.y,
-        x2: childPos.x,
-        y2: childPos.y,
-        color: style.bgSolid,
-      };
-    });
+  const connectionLines = useMemo(() => {
+    return Object.entries(visibleNodes)
+      .filter(([, node]) => node.parentId && nodes[node.parentId])
+      .map(([key, node]) => {
+        const parent = nodes[node.parentId!];
+        const childPos = hexToPixel(node.q, node.r);
+        const parentPos = hexToPixel(parent.q, parent.r);
+        const style = NODE_TYPES[node.type] || NODE_TYPES.default;
+        return {
+          key,
+          x1: parentPos.x,
+          y1: parentPos.y,
+          x2: childPos.x,
+          y2: childPos.y,
+          color: style.bgSolid,
+        };
+      });
+  }, [visibleNodes, nodes]);
 
   return (
     <div className="flex flex-col w-full h-screen bg-neutral-950 text-neutral-100 overflow-hidden font-sans select-none relative">
@@ -1562,7 +1981,7 @@ Be comprehensive but focused on the user's specific request.`;
               </span>
               <button
                 onClick={() => setShowWelcome(true)}
-                className="p-1.5 hover:bg-white/10 rounded-lg text-white"
+                className="p-2 hover:bg-white/10 rounded-lg text-white"
               >
                 <Info className="w-4 h-4" />
               </button>
@@ -1579,14 +1998,14 @@ Be comprehensive but focused on the user's specific request.`;
               <div className="flex items-center gap-1">
                 <button
                   onClick={exportAsPNG}
-                  className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
+                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg"
                   title="Export PNG"
                 >
                   <Camera className="w-4 h-4" />
                 </button>
                 <button
                   onClick={exportAsImage}
-                  className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg text-xs"
+                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg text-xs"
                   title="Export SVG"
                 >
                   SVG
@@ -1598,14 +2017,14 @@ Be comprehensive but focused on the user's specific request.`;
                 <button
                   onClick={handleUndo}
                   disabled={historyIndex === 0}
-                  className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-30"
+                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-30"
                 >
                   <Undo2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleRedo}
                   disabled={historyIndex === history.length - 1}
-                  className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-30"
+                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-30"
                 >
                   <Redo2 className="w-4 h-4" />
                 </button>
@@ -1617,7 +2036,7 @@ Be comprehensive but focused on the user's specific request.`;
                   setIsSearchOpen(!isSearchOpen);
                   setTimeout(() => searchInputRef.current?.focus(), 50);
                 }}
-                className={`p-2 rounded-lg transition-colors ${isSearchOpen ? "bg-white/20 text-white" : "hover:bg-white/10 text-neutral-300"}`}
+                className={`p-2.5 rounded-lg transition-colors ${isSearchOpen ? "bg-white/20 text-white" : "hover:bg-white/10 text-neutral-300"}`}
               >
                 <Search className="w-4 h-4" />
               </button>
@@ -1628,7 +2047,7 @@ Be comprehensive but focused on the user's specific request.`;
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => setShowSessionsModal(true)}
-                      className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
+                      className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg"
                     >
                       <FolderOpen className="w-4 h-4" />
                     </button>
@@ -1639,7 +2058,7 @@ Be comprehensive but focused on the user's specific request.`;
                   <TooltipTrigger asChild>
                     <button
                       onClick={exportSession}
-                      className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg"
+                      className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg"
                     >
                       <Download className="w-4 h-4" />
                     </button>
@@ -1648,7 +2067,7 @@ Be comprehensive but focused on the user's specific request.`;
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <label className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg cursor-pointer">
+                    <label className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg cursor-pointer">
                       <Upload className="w-4 h-4" />
                       <input
                         type="file"
@@ -1753,6 +2172,21 @@ Be comprehensive but focused on the user's specific request.`;
             />
           </div>
 
+          {/* Smart Expansion Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setEnableSmartExpansion(!enableSmartExpansion)}
+                className={`p-3 bg-neutral-900/90 border border-white/10 rounded-xl transition-colors ${
+                  enableSmartExpansion ? 'bg-purple-500/20 border-purple-500/50' : 'hover:bg-white/5'
+                }`}
+              >
+                <Zap className={`w-5 h-5 ${enableSmartExpansion ? 'text-purple-400' : 'text-neutral-400'}`} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Smart Expansion {enableSmartExpansion ? 'ON' : 'OFF'}</TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -1801,16 +2235,14 @@ Be comprehensive but focused on the user's specific request.`;
       {/* Main Canvas */}
       <main
         ref={containerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={() => setIsDragging(false)}
-        onMouseLeave={() => {
-          setIsDragging(false);
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onWheel={handleWheel}
+        onMouseDown={!isTouchDevice ? handleMouseDown : undefined}
+        onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
+        onMouseUp={!isTouchDevice ? () => setIsDragging(false) : undefined}
+        onMouseLeave={!isTouchDevice ? () => setIsDragging(false) : undefined}
+        onClick={!isTouchDevice ? handleCanvasClick : undefined}
+        onTouchStart={isTouchDevice ? handleTouchStart : undefined}
+        onTouchMove={isTouchDevice ? handleTouchMove : undefined}
+        onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
         className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden"
       >
         <div
@@ -1854,8 +2286,9 @@ Be comprehensive but focused on the user's specific request.`;
               const style = NODE_TYPES[node.type] || NODE_TYPES.default;
               const Icon = style.icon;
               const isSelected = selectedNodeId === key;
-              const isHovered = hoveredNodeId === key;
+              const isHovered = inspectedNodeId === key;
               const isLoading = loadingNode === key;
+              const isAutoExpanding = autoExpandingNodes.has(key);
 
               // Search and Filter Dimming
               const isDimmed =
@@ -1875,7 +2308,11 @@ Be comprehensive but focused on the user's specific request.`;
                     zIndex: isSelected ? 20 : isHovered ? 15 : 10,
                   }}
                   className={`absolute group transition-all duration-200 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
-                  onMouseEnter={() => setHoveredNodeId(key)}
+                  onMouseEnter={() => {
+                    setHoveredNodeId(key);
+                    if (!inspectedNodeId) setInspectedNodeId(key);
+                  }}
+                  onMouseLeave={() => setHoveredNodeId(null)}
                 >
                       <div
                         draggable={!node.pinned && node.type !== 'root'}
@@ -1909,17 +2346,38 @@ Be comprehensive but focused on the user's specific request.`;
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (navigator.vibrate) navigator.vibrate(10);
                           handleNodeClick(key, node);
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           handleDeepDive(node);
                         }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation();
+                          longPressTimer.current = setTimeout(() => {
+                            if (navigator.vibrate) navigator.vibrate(50);
+                            handleDeepDive(node);
+                            longPressTimer.current = null;
+                          }, 500);
+                        }}
+                        onTouchEnd={() => {
+                          if (longPressTimer.current) {
+                            clearTimeout(longPressTimer.current);
+                            longPressTimer.current = null;
+                          }
+                        }}
+                        onTouchMove={() => {
+                          if (longPressTimer.current) {
+                            clearTimeout(longPressTimer.current);
+                            longPressTimer.current = null;
+                          }
+                        }}
                         className={`
                           relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
                           transition-transform duration-200
                           ${isSelected ? "scale-110" : isHovered ? "scale-105" : ""}
-                          ${isLoading ? "animate-pulse" : ""}
+                          ${isLoading || isAutoExpanding ? "animate-pulse" : ""}
                           ${draggedNodeId === key ? "opacity-50 scale-95" : ""}
                           ${dropTargetId === key ? "ring-4 ring-indigo-500 ring-opacity-75 scale-110" : ""}
                         `}
@@ -1933,13 +2391,15 @@ Be comprehensive but focused on the user's specific request.`;
                             className={`
                               transition-all duration-200
                               ${
-                                node.pinned
+                                node.isKeyTheme
                                   ? "fill-neutral-800 stroke-amber-400 stroke-[4]"
-                                  : isSelected
-                                    ? `fill-neutral-800 ${style.border} stroke-[3]`
-                                    : isHovered
-                                      ? `fill-neutral-850 ${style.border} stroke-[2]`
-                                      : `fill-neutral-900 stroke-neutral-700 stroke-[1]`
+                                  : node.isClusterRoot
+                                    ? `fill-neutral-800 ${getClusterColor(node.clusterId).stroke} stroke-[3]`
+                                    : isSelected
+                                      ? `fill-neutral-800 ${style.border} stroke-[3]`
+                                      : isHovered
+                                        ? `fill-neutral-850 ${style.border} stroke-[2]`
+                                        : `fill-neutral-900 stroke-neutral-700 stroke-[1]`
                               }
                             `}
                           />
@@ -1959,7 +2419,7 @@ Be comprehensive but focused on the user's specific request.`;
                             <>
                               <Icon className={`w-4 h-4 ${style.color} opacity-90 shrink-0`} />
                               <span
-                                className={`text-[11px] font-bold leading-tight line-clamp-3 uppercase tracking-wide text-center ${node.pinned ? "text-white" : "text-neutral-200"}`}
+                                className={`text-[9px] sm:text-[10px] md:text-[11px] font-bold leading-tight line-clamp-3 uppercase tracking-wide text-center ${node.isKeyTheme ? "text-white" : "text-neutral-200"}`}
                                 style={{ wordBreak: 'break-word' }}
                               >
                                 {node.text}
@@ -1967,6 +2427,13 @@ Be comprehensive but focused on the user's specific request.`;
                             </>
                           )}
                         </div>
+
+                        {/* Auto-expansion indicator */}
+                        {isAutoExpanding && (
+                          <div className="absolute -top-1 -right-1 z-20 bg-purple-500 rounded-full p-1 shadow-lg animate-bounce">
+                            <Zap className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                 </div>
               );
@@ -1980,29 +2447,18 @@ Be comprehensive but focused on the user's specific request.`;
           </div>
         </div>
 
-        {/* Floating Action Bar */}
-        {activeNode && selectedNodeId && !editingNodeId && (
+        {/* Floating Action Bar - shows on hover only */}
+        {hoveredNode && hoveredNodeId && !editingNodeId && (
           <FloatingActionBar
-            node={activeNode}
-            nodeKey={activeNodeKey!}
-            position={getNodeScreenPosition(activeNode)}
-            onExpand={() => generateNeighbors(activeNode)}
-            onRefresh={() => generateNeighbors(activeNode, true)}
-            onPin={() => {
-              commitNodes({
-                ...nodes,
-                [activeNodeKey!]: { ...activeNode, pinned: !activeNode.pinned },
-              });
-            }}
-            onEdit={() => {
-              setEditingNodeId(activeNodeKey);
-              setEditTitle(activeNode.text);
-              setEditDesc(activeNode.description || "");
-            }}
-            onPrune={() => pruneNode(activeNodeKey!)}
-            onDeepDive={() => handleDeepDive(activeNode)}
-            onAdd={() => handleManualAdd(activeNode)}
-            isLoading={loadingNode === activeNodeKey}
+            node={hoveredNode}
+            position={getNodeScreenPosition(hoveredNode)}
+            onRefresh={() => refreshSingleNode(hoveredNode)}
+            onPrune={() => pruneNode(hoveredNodeId)}
+            onSettings={() => setFilterType(filterType ? null : 'all')}
+            onHelp={() => setShowKeyboardHelp(true)}
+            isLoading={loadingNode === hoveredNodeId}
+            onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
+            onMouseLeave={() => setHoveredNodeId(null)}
           />
         )}
       </main>
@@ -2095,99 +2551,78 @@ Be comprehensive but focused on the user's specific request.`;
         </div>
       </Modal>
 
-      {/* WELCOME MODAL */}
+      {/* WELCOME MODAL - Clean, elegant intro */}
       <Modal
         isOpen={showWelcome}
         onClose={() => setShowWelcome(false)}
-        title="Welcome to HexMind"
+        title=""
+        description=""
+        maxWidth="max-w-sm"
       >
-        <div className="flex flex-col gap-6 text-center">
-          <div className="flex items-center justify-center">
-            <div className="relative">
-              <div className="absolute inset-0 bg-yellow-500/20 blur-xl rounded-full" />
-              <Zap className="w-16 h-16 text-yellow-400 relative z-10" />
-            </div>
+        <div className="text-center space-y-6">
+          {/* Branding */}
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">HexMind</h1>
+            <p className="text-sm text-neutral-400">AI brainstorming on a hexagonal canvas</p>
           </div>
 
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-white">
-              Ignite Your Brainstorming
-            </h2>
-            <p className="text-neutral-400">
-              HexMind uses AI to generate an infinite web of connected ideas. Enter
-              a seed concept below, then click tiles to expand your hive.
-            </p>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-left space-y-3">
-            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
-              Quick Tips
-            </h3>
-            <ul className="text-sm text-neutral-300 space-y-2">
-              <li className="flex items-center gap-2">
-                <MousePointer2 className="w-4 h-4 text-indigo-400" /> Hover to see details, click to auto-expand
-              </li>
-              <li className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" /> Double-click for a
-                Deep Dive analysis
-              </li>
-              <li className="flex items-center gap-2">
-                <Pin className="w-4 h-4 text-green-400" /> Pin nodes to protect them
-                from regeneration
-              </li>
-              <li className="flex items-center gap-2">
-                <Merge className="w-4 h-4 text-cyan-400" /> Drag a node onto another
-                to merge ideas
-              </li>
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-3">
+          {/* Input Section */}
+          <div className="space-y-3">
             <Input
               value={rootInput}
               onChange={(e) => setRootInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && startBrainstorm()}
-              placeholder="e.g. Sustainable Coffee Shop, Cyberpunk RPG, Mars Colony..."
-              className="w-full bg-neutral-800 border-white/10 text-center text-lg text-white placeholder:text-neutral-600"
+              onKeyDown={(e) => e.key === "Enter" && rootInput.trim() && startBrainstorm()}
+              placeholder="A concept, project, or question..."
+              className="w-full bg-neutral-800/50 border-white/10 text-base text-white placeholder:text-neutral-500 text-center"
               autoFocus
             />
-            <div className="flex gap-2">
-              <Button
-                onClick={() => startBrainstorm()}
-                disabled={!rootInput.trim()}
-                className="flex-1 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 text-lg"
-              >
-                Launch Hive
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowWelcome(false);
-                  setShowTemplates(true);
-                }}
-                variant="outline"
-                className="px-6 py-3 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
-              >
-                <Layout className="w-5 h-5" />
-              </Button>
-            </div>
-            <p className="text-xs text-neutral-500 text-center">
-              Or choose from pre-built templates →
-            </p>
+            <Button
+              onClick={() => startBrainstorm()}
+              disabled={!rootInput.trim()}
+              className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-2.5"
+            >
+              Start Exploring
+            </Button>
           </div>
+
+          {/* Templates Link */}
+          <button
+            onClick={() => {
+              setShowWelcome(false);
+              setShowTemplates(true);
+            }}
+            className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Or start from a template →
+          </button>
+
+          {/* Tour Link */}
+          <p className="text-xs text-neutral-500">
+            First time?{" "}
+            <button
+              onClick={() => {
+                setShowWelcome(false);
+                setShowTour(true);
+              }}
+              className="text-indigo-400 hover:underline"
+            >
+              Take a quick tour
+            </button>
+          </p>
         </div>
       </Modal>
 
       {/* Rich Hover Panel - Shows full node details on hover, persists until closed */}
-      {hoveredNodeId && nodes[hoveredNodeId] && (
+      {inspectedNodeId && nodes[inspectedNodeId] && (
         <div 
-          className="fixed bottom-4 left-4 z-50 w-[380px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto animate-in slide-in-from-left-2 duration-200"
+          className="fixed bottom-4 left-4 right-4 sm:right-auto z-50 w-auto sm:w-[380px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto animate-in slide-in-from-left-2 duration-200"
         >
           <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
             {/* Header with close button */}
             <div className="flex items-start justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white pr-8">{nodes[hoveredNodeId].text}</h2>
+              <h2 className="text-2xl font-bold text-white pr-8">{nodes[inspectedNodeId].text}</h2>
               <button
-                onClick={() => setHoveredNodeId(null)}
+                onClick={() => setInspectedNodeId(null)}
                 className="text-neutral-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
               >
                 <X className="w-5 h-5" />
@@ -2198,7 +2633,7 @@ Be comprehensive but focused on the user's specific request.`;
               {/* Node Type Badge */}
               <div className="flex items-center gap-3">
                 {(() => {
-                  const node = nodes[hoveredNodeId];
+                  const node = nodes[inspectedNodeId];
                   const style = NODE_TYPES[node.type] || NODE_TYPES.default;
                   const Icon = style.icon;
                   return (
@@ -2213,10 +2648,10 @@ Be comprehensive but focused on the user's specific request.`;
                     </>
                   );
                 })()}
-                {nodes[hoveredNodeId].pinned && (
+                {nodes[inspectedNodeId].isKeyTheme && (
                   <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/50">
-                    <Pin className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-amber-400 font-bold">PINNED</span>
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-amber-400 font-bold">KEY THEME</span>
                   </div>
                 )}
               </div>
@@ -2225,46 +2660,112 @@ Be comprehensive but focused on the user's specific request.`;
               <div>
                 <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Description</h4>
                 <p className="text-base text-neutral-200 leading-relaxed">
-                  {nodes[hoveredNodeId].description || "No description available."}
+                  {nodes[inspectedNodeId].description || "No description available."}
                 </p>
               </div>
+
+              {/* Generated Image */}
+              {nodes[inspectedNodeId].imageUrl && (
+                <div>
+                  <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Generated Image</h4>
+                  <img
+                    src={nodes[inspectedNodeId].imageUrl}
+                    alt={nodes[inspectedNodeId].text}
+                    className="w-full rounded-xl border border-white/10 shadow-lg"
+                  />
+                </div>
+              )}
 
               {/* Node Stats */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <p className="text-xs text-neutral-500 mb-2 font-semibold">Coordinates</p>
                   <p className="text-lg font-mono text-white font-bold">
-                    q: {nodes[hoveredNodeId].q}, r: {nodes[hoveredNodeId].r}
+                    q: {nodes[inspectedNodeId].q}, r: {nodes[inspectedNodeId].r}
                   </p>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <p className="text-xs text-neutral-500 mb-2 font-semibold">Neighbors</p>
                   <p className="text-lg font-mono text-white font-bold">
                     {DIRECTIONS.filter(dir => {
-                      const nKey = getNodeKey(nodes[hoveredNodeId].q + dir.q, nodes[hoveredNodeId].r + dir.r);
+                      const nKey = getNodeKey(nodes[inspectedNodeId].q + dir.q, nodes[inspectedNodeId].r + dir.r);
                       return nodes[nKey] !== undefined;
                     }).length} / 6
                   </p>
                 </div>
               </div>
 
-              {/* Action Hints */}
-              <div className="bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 rounded-xl p-5">
-                <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-3">Quick Actions</p>
-                <ul className="text-sm text-neutral-200 space-y-2">
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
-                    <strong>Click</strong> to expand and generate neighbors
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
-                    <strong>Double-click</strong> for deep dive analysis
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-pink-400"></div>
-                    <strong>Drag</strong> onto another node to merge ideas
-                  </li>
-                </ul>
+              {/* Panel Actions */}
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
+                {/* Generate Image */}
+                <button
+                  onClick={() => generateImage(nodes[inspectedNodeId])}
+                  disabled={imageLoading === inspectedNodeId}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-sm transition-colors"
+                >
+                  {imageLoading === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                  {nodes[inspectedNodeId].imageUrl ? "Regen" : "Image"}
+                </button>
+
+                {/* Refresh/Redo This Node */}
+                <button
+                  onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
+                  disabled={loadingNode === inspectedNodeId}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 text-sm transition-colors"
+                >
+                  {loadingNode === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Redo
+                </button>
+
+                {/* Edit */}
+                <button
+                  onClick={() => {
+                    setEditingNodeId(inspectedNodeId);
+                    setEditTitle(nodes[inspectedNodeId].text);
+                    setEditDesc(nodes[inspectedNodeId].description || "");
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 text-sm transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit
+                </button>
+
+                {/* Add Custom Child */}
+                <button
+                  onClick={() => handleManualAdd(nodes[inspectedNodeId])}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+
+                {/* Key Theme Toggle - visual emphasis only */}
+                <button
+                  onClick={() => {
+                    const isNowKeyTheme = !nodes[inspectedNodeId].isKeyTheme;
+                    commitNodes({
+                      ...nodes,
+                      [inspectedNodeId]: { ...nodes[inspectedNodeId], isKeyTheme: isNowKeyTheme },
+                    });
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    nodes[inspectedNodeId].isKeyTheme
+                      ? "bg-amber-500/30 text-amber-300"
+                      : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {nodes[inspectedNodeId].isKeyTheme ? "Key" : "Mark"}
+                </button>
+
+                {/* Deep Dive */}
+                <button
+                  onClick={() => handleDeepDive(nodes[inspectedNodeId])}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-400 text-sm transition-colors"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Dive
+                </button>
               </div>
             </div>
           </div>
@@ -2284,23 +2785,86 @@ Be comprehensive but focused on the user's specific request.`;
             <p className="text-neutral-400">Analyzing...</p>
           </div>
         ) : (
-          <div className="prose prose-invert prose-lg max-w-none">
-            <ReactMarkdown
-              components={{
-                h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-white" {...props} />,
-                h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-white" {...props} />,
-                h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-neutral-200" {...props} />,
-                p: ({node, ...props}) => <p className="text-base leading-relaxed mb-4 text-neutral-300" {...props} />,
-                ul: ({node, ...props}) => <ul className="space-y-2 mb-6 ml-6" {...props} />,
-                ol: ({node, ...props}) => <ol className="space-y-2 mb-6 ml-6" {...props} />,
-                li: ({node, ...props}) => <li className="text-base leading-relaxed text-neutral-300" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
-                em: ({node, ...props}) => <em className="italic text-neutral-200" {...props} />,
-                code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-neutral-800 text-amber-400 text-sm" {...props} />,
-              }}
-            >
-              {deepDiveContent || ""}
-            </ReactMarkdown>
+          <div className="space-y-6">
+            {/* Export Actions */}
+            <div className="flex justify-end gap-2 pb-4 border-b border-white/10">
+              <Button
+                onClick={() => {
+                  const blob = new Blob([`# ${deepDiveTitle}\n\n${deepDiveContent}`], { type: 'text/markdown' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${deepDiveTitle.replace(/[^a-z0-9]/gi, '_')}_deep_dive.md`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                variant="outline"
+                size="sm"
+                className="border-white/10 text-neutral-300"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download .md
+              </Button>
+              <Button
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  if (printWindow) {
+                    printWindow.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <title>${deepDiveTitle} - Deep Dive</title>
+                        <style>
+                          body { font-family: Georgia, serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #333; }
+                          h1 { font-size: 2em; margin-bottom: 0.5em; border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+                          h2 { font-size: 1.5em; margin-top: 1.5em; color: #444; }
+                          h3 { font-size: 1.2em; margin-top: 1.2em; color: #555; }
+                          p { margin-bottom: 1em; }
+                          ul, ol { margin-left: 1.5em; margin-bottom: 1em; }
+                          li { margin-bottom: 0.5em; }
+                          code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+                          strong { font-weight: bold; }
+                          em { font-style: italic; }
+                          @media print { body { margin: 0; padding: 20px; } }
+                        </style>
+                      </head>
+                      <body>
+                        <h1>${deepDiveTitle}</h1>
+                        ${(deepDiveContent || '').replace(/^# .+\n/m, '').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^\* (.+)$/gm, '<li>$1</li>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/\n\n/g, '</p><p>').replace(/^(?!<[hlo])/gm, '<p>').replace(/<p><\/p>/g, '')}
+                      </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                    printWindow.print();
+                  }
+                }}
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Print / Save PDF
+              </Button>
+            </div>
+
+            {/* Content */}
+            <div className="prose prose-invert prose-lg max-w-none">
+              <ReactMarkdown
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-white" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-white" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-neutral-200" {...props} />,
+                  p: ({node, ...props}) => <p className="text-base leading-relaxed mb-4 text-neutral-300" {...props} />,
+                  ul: ({node, ...props}) => <ul className="space-y-2 mb-6 ml-6" {...props} />,
+                  ol: ({node, ...props}) => <ol className="space-y-2 mb-6 ml-6" {...props} />,
+                  li: ({node, ...props}) => <li className="text-base leading-relaxed text-neutral-300" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
+                  em: ({node, ...props}) => <em className="italic text-neutral-200" {...props} />,
+                  code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-neutral-800 text-amber-400 text-sm" {...props} />,
+                }}
+              >
+                {deepDiveContent || ""}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
       </Modal>
@@ -2532,31 +3096,35 @@ Be comprehensive but focused on the user's specific request.`;
           </div>
 
           {/* Templates Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
-            {TEMPLATES
-              .filter((t) => selectedCategory === "all" || t.category === selectedCategory)
-              .map((template) => (
-                <div
-                  key={template.id}
-                  className="bg-white/5 border border-white/10 rounded-xl p-5 hover:border-yellow-500/50 hover:bg-white/10 transition-all cursor-pointer group"
-                  onClick={() => loadTemplate(template)}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="text-4xl">{template.icon}</div>
-                    <div className="flex-1 space-y-2">
-                      <h3 className="text-lg font-bold text-white group-hover:text-yellow-400 transition-colors">
-                        {template.name}
-                      </h3>
-                      <p className="text-sm text-neutral-400">{template.description}</p>
-                      <div className="flex items-center gap-2 text-xs text-neutral-500">
-                        <span>{template.nodes.length} nodes</span>
-                        <span>•</span>
-                        <span className="capitalize">{template.category.replace("-", " ")}</span>
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto scrollbar-none pr-1">
+              {TEMPLATES
+                .filter((t) => selectedCategory === "all" || t.category === selectedCategory)
+                .map((template) => (
+                  <div
+                    key={template.id}
+                    className="bg-white/5 border border-white/10 rounded-xl p-5 hover:border-yellow-500/50 hover:bg-white/10 transition-all cursor-pointer group"
+                    onClick={() => selectTemplate(template)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="text-4xl">{template.icon}</div>
+                      <div className="flex-1 space-y-2">
+                        <h3 className="text-lg font-bold text-white group-hover:text-yellow-400 transition-colors">
+                          {template.name}
+                        </h3>
+                        <p className="text-sm text-neutral-400">{template.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                          <span>{template.nodes.length} nodes</span>
+                          <span>•</span>
+                          <span className="capitalize">{template.category.replace("-", " ")}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+            </div>
+            {/* Scroll fade indicator */}
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-neutral-900 to-transparent pointer-events-none" />
           </div>
 
           <div className="flex justify-between items-center pt-4 border-t border-white/10">
@@ -2567,6 +3135,138 @@ Be comprehensive but focused on the user's specific request.`;
               onClick={() => setShowTemplates(false)}
               variant="ghost"
               className="text-neutral-400"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Template Context Modal */}
+      <Modal
+        isOpen={!!pendingTemplate}
+        onClose={() => {
+          setPendingTemplate(null);
+          setTemplateContext("");
+        }}
+        title={pendingTemplate?.name || "Customize Template"}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">{pendingTemplate?.icon}</span>
+            <p className="text-sm text-neutral-400">{pendingTemplate?.description}</p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-neutral-200">
+              What specifically are you planning?
+            </label>
+            <Input
+              value={templateContext}
+              onChange={(e) => setTemplateContext(e.target.value)}
+              placeholder={
+                pendingTemplate?.category === "product"
+                  ? "e.g., A mobile app for dog walkers..."
+                  : pendingTemplate?.category === "creative"
+                    ? "e.g., A sci-fi novel about AI consciousness..."
+                    : pendingTemplate?.category === "business"
+                      ? "e.g., A coffee subscription service..."
+                      : "Describe your specific idea..."
+              }
+              className="bg-neutral-800 border-white/10"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && templateContext.trim()) {
+                  generateContextualTemplate();
+                }
+              }}
+            />
+            <p className="text-xs text-neutral-500">
+              The more specific you are, the more tailored your brainstorm will be.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={generateContextualTemplate}
+              disabled={!templateContext.trim() || isGeneratingTemplate}
+              className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+            >
+              {isGeneratingTemplate ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Personalized Map"
+              )}
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingTemplate) loadTemplate(pendingTemplate);
+                setPendingTemplate(null);
+              }}
+              variant="outline"
+              className="border-white/10 text-neutral-400"
+            >
+              Use Generic
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* New Cluster Modal */}
+      <Modal
+        isOpen={showNewClusterModal}
+        onClose={() => {
+          setShowNewClusterModal(false);
+          setNewClusterInput("");
+          setNewClusterCoords(null);
+        }}
+        title="Start New Idea Cluster"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6">
+          <p className="text-sm text-neutral-400">
+            Create a new brainstorming cluster that can grow and connect to your existing ideas.
+          </p>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-neutral-200">
+              What's your new idea?
+            </label>
+            <Input
+              value={newClusterInput}
+              onChange={(e) => setNewClusterInput(e.target.value)}
+              placeholder="Enter your concept, question, or topic..."
+              className="bg-neutral-800 border-white/10"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newClusterInput.trim()) {
+                  createNewCluster();
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              onClick={createNewCluster}
+              disabled={!newClusterInput.trim()}
+              className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Cluster
+            </Button>
+            <Button
+              onClick={() => {
+                setShowNewClusterModal(false);
+                setNewClusterInput("");
+                setNewClusterCoords(null);
+              }}
+              variant="outline"
+              className="border-white/10 text-neutral-400"
             >
               Cancel
             </Button>
@@ -2626,8 +3326,8 @@ Be comprehensive but focused on the user's specific request.`;
                 <span className="text-xs text-neutral-500">Click node</span>
               </div>
               <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Double-click for Deep Dive</span>
-                <span className="text-xs text-neutral-500">Double-click</span>
+                <span className="text-sm">Long-press (mobile) or double-click for Deep Dive</span>
+                <span className="text-xs text-neutral-500">Long-press / Double-click</span>
               </div>
               <div className="flex items-center justify-between p-2 bg-white/5 rounded">
                 <span className="text-sm">Drag to merge nodes</span>
@@ -2653,6 +3353,63 @@ Be comprehensive but focused on the user's specific request.`;
               </div>
             </div>
           </div>
+        </div>
+      </Modal>
+
+      {/* Quick Tour Modal */}
+      <Modal
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+        title="Quick Tour"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 text-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-indigo-500/20 shrink-0">
+              <MousePointer2 className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-white">Click any tile</p>
+              <p className="text-neutral-400">Generate related ideas in all empty adjacent slots</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-white">Mark as Key Theme</p>
+              <p className="text-neutral-400">Highlights important concepts and opens deep dive analysis</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cyan-500/20 shrink-0">
+              <Merge className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-white">Drag to merge</p>
+              <p className="text-neutral-400">Combine two ideas by dragging one onto another</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/20 shrink-0">
+              <ImageIcon className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-white">Generate visuals</p>
+              <p className="text-neutral-400">Create AI images for any concept from the info panel</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => setShowTour(false)}
+            className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700"
+          >
+            Got it!
+          </Button>
         </div>
       </Modal>
 
@@ -2709,6 +3466,16 @@ Be comprehensive but focused on the user's specific request.`;
           />
         </div>
       )}
+
+      {/* Screen reader announcements */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only absolute w-px h-px p-0 -m-px overflow-hidden"
+        style={{ clip: 'rect(0, 0, 0, 0)' }}
+      >
+        {loadingNode && `Generating ideas for ${nodes[loadingNode]?.text}`}
+      </div>
     </div>
   );
 }

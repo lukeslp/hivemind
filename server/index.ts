@@ -16,9 +16,21 @@ async function startServer() {
       ? path.resolve(__dirname, "public")
       : path.resolve(__dirname, "..", "dist", "public");
 
+  // Base path for serving under /hexmind/ subpath
+  const basePath = process.env.BASE_PATH || '/hexmind';
+
+  // Serve static files at the base path
+  app.use(basePath, express.static(staticPath));
+
+  // Also serve at root for direct access
   app.use(express.static(staticPath));
 
-  // Handle client-side routing - serve index.html for all routes
+  // Handle client-side routing - serve index.html for all routes under base path
+  app.get(`${basePath}/*`, (_req, res) => {
+    res.sendFile(path.join(staticPath, "index.html"));
+  });
+
+  // Also handle root for direct port access
   app.get("*", (_req, res) => {
     res.sendFile(path.join(staticPath, "index.html"));
   });
