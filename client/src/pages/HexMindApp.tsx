@@ -243,13 +243,8 @@ interface HexNode {
   clusterId?: string;       // Identifies which cluster this node belongs to
   isClusterRoot?: boolean;  // True for root nodes of each cluster
   contextPrompt?: string;   // Question to ask user before expanding (e.g., "What kind of cafe?")
+  contextInfo?: string;     // Generic user notes for LLM context (replaces location)
   // Sprint 3: Enhanced artifacts
-  location?: {
-    address: string;
-    city?: string;
-    coordinates?: { lat: number; lng: number };
-    metadata?: any; // Demographics, pricing data, etc.
-  };
   codeSnippet?: {
     language: string;
     code: string;
@@ -273,6 +268,13 @@ interface ConfirmModalState {
   title: string;
   message: string;
   onConfirm: () => void;
+}
+
+interface GenerationTracker {
+  maxGenerationsPerSession: number;    // Maximum number of AI generations allowed per session
+  generationCooldown: number;          // Cooldown in milliseconds between auto-expansions
+  generationCount: number;             // Current count of generations in this session
+  lastGenerationTime: number | null;   // Timestamp of last generation (for cooldown)
 }
 
 // --- Helper Components ---
@@ -652,8 +654,8 @@ const FloatingActionBar = ({
   node,
   position,
   onRefresh,
+  onGenerateImage,
   onDeepDive,
-  onPrune,
   isLoading,
   onMouseEnter,
   onMouseLeave,
@@ -661,8 +663,8 @@ const FloatingActionBar = ({
   node: HexNode;
   position: { x: number; y: number };
   onRefresh: () => void;
+  onGenerateImage: () => void;
   onDeepDive: () => void;
-  onPrune: () => void;
   isLoading: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -700,7 +702,21 @@ const FloatingActionBar = ({
           <TooltipContent>Refresh</TooltipContent>
         </Tooltip>
 
-        {/* Deep Dive - Detailed analysis (engagement feature) */}
+        {/* Make Image - Generate visual for this concept */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onGenerateImage}
+              aria-label="Make Image - Generate a visual representation"
+              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-purple-500/20 text-purple-400 transition-all"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Make Image</TooltipContent>
+        </Tooltip>
+
+        {/* Deep Dive - Detailed analysis */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -708,27 +724,11 @@ const FloatingActionBar = ({
               aria-label="Deep Dive - Get comprehensive AI analysis of this concept"
               className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-indigo-500/20 text-indigo-400 transition-all"
             >
-              <Sparkles className="w-4 h-4" />
+              <Target className="w-4 h-4" />
             </button>
           </TooltipTrigger>
           <TooltipContent>Deep Dive</TooltipContent>
         </Tooltip>
-
-        {/* Delete - Remove node (non-root only) */}
-        {node.type !== "root" && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onPrune}
-                aria-label="Delete this node and its children"
-                className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-red-500/20 text-red-400 transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
-          </Tooltip>
-        )}
       </div>
     </div>
   );
