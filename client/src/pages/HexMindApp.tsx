@@ -2780,7 +2780,7 @@ Example format:
                                   : isAutoExpanding
                                     ? "fill-card stroke-purple-400 stroke-[4]"
                                     : node.isKeyTheme
-                                      ? "fill-card stroke-amber-400 stroke-[4]"
+                                      ? "fill-card stroke-yellow-300 stroke-[4]"
                                       : node.isClusterRoot
                                         ? `fill-card ${getClusterColor(node.clusterId).stroke} stroke-[3]`
                                         : isSelected
@@ -2790,6 +2790,7 @@ Example format:
                                             : `fill-background stroke-border/80 stroke-[2]`
                               }
                             `}
+                            style={node.isKeyTheme ? { filter: 'drop-shadow(0 0 4px rgba(253, 224, 71, 0.4))' } : undefined}
                           />
 
                           {/* Inner glow for selected/hovered */}
@@ -2825,7 +2826,18 @@ Example format:
                                   isAutoExpanding ? 'animate-pulse' : ''
                                 }`;
 
-                                return <IconComponent className={iconClasses} />;
+                                return (
+                                  <div className="relative inline-block">
+                                    <IconComponent className={iconClasses} />
+                                    {/* Key theme sparkle overlay */}
+                                    {node.isKeyTheme && (
+                                      <Sparkles
+                                        className="absolute -top-1 -right-1 w-3 h-3 text-yellow-300"
+                                        strokeWidth={2.5}
+                                      />
+                                    )}
+                                  </div>
+                                );
                               })()}
                               <span
                                 className={`text-hex-node font-bold line-clamp-3 uppercase text-center ${node.isKeyTheme ? "text-foreground" : "text-card-foreground"}`}
