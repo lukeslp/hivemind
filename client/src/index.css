@@ -300,41 +300,10 @@
             drop-shadow(0 10px 10px rgba(0, 0, 0, 0.4));
   }
 
-  /* "Needs Info" state classes */
-  .needs-info-border {
-    animation: needs-info-pulse 2s ease-in-out infinite;
-  }
-
-  .needs-info-badge {
-    animation: badge-bounce-subtle 2s ease-in-out infinite;
-  }
-}
-
-/* "Needs Info" animations */
-@keyframes needs-info-pulse {
-  0%, 100% {
-    stroke-opacity: 0.6;
-    stroke-width: 3;
-  }
-  50% {
-    stroke-opacity: 1.0;
-    stroke-width: 4;
-  }
-}
-
-@keyframes badge-bounce-subtle {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2px);
-  }
 }
 
 /* Accessibility - respect user motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  .needs-info-border,
-  .needs-info-badge,
   .animate-pulse,
   .animate-bounce {
     animation: none;
