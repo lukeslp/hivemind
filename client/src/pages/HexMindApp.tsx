@@ -2098,6 +2098,10 @@ Example format:
 
     // Generate if there are empty slots and not already loading (parallel generation allowed)
     if (hasEmptyNeighbors && !loadingNodes.has(key)) {
+      // Show toast with node title
+      toast.info(`Generating neighbors for "${node.text}"...`, {
+        duration: 2000,
+      });
       generateNeighbors(node);
     }
   };
