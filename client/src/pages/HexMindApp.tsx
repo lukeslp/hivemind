@@ -1264,6 +1264,9 @@ Each node should explore a different angle or aspect of the central idea.
 Types available: concept, action, technical, question, risk.
 Vary the types to create a diverse exploration.
 
+You will also receive a list of existing nearby nodes in the map. If any of your generated branches
+have a strong conceptual relationship with existing nodes (NOT the parent), suggest those connections.
+
 IMPORTANT:
 - You MUST return exactly 6 branches, no more, no less.
 - For each branch, assess its COMPLEXITY (1-5 scale):
@@ -1288,7 +1291,10 @@ If you see concepts like "research", "planning", "analysis", "design", "strategy
 
 CRITICAL: Return ONLY valid JSON. No explanations, no commentary, no extra text. Just pure JSON.
 
-Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": "Specific question here or null" }, ... ] }
+Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": "Specific question here or null", "relatedTo": ["node-key-1", "node-key-2"] | null }, ... ] }
+
+The "relatedTo" field should contain keys of existing nodes that have meaningful conceptual
+connections to this new branch. Only suggest strong connections, not tangential ones.
 
 Example valid response:
 {
@@ -1299,16 +1305,23 @@ Example valid response:
       "type": "action",
       "complexity": 3,
       "autoExpand": false,
-      "contextPrompt": null
+      "contextPrompt": null,
+      "relatedTo": null
     }
   ]
 }`;
+
+    const nearbyNodesContext = getNearestNodes(centerNode, 10);
 
     const userQuery = `Central idea: "${centerNode.text}"
 Context: ${centerNode.description || "No additional context"}
 ${centerNode.contextInfo ? `Additional context: ${centerNode.contextInfo}` : ""}
 ${additionalContext ? `User input: ${additionalContext}` : ""}
-Generate 6 diverse related ideas exploring different aspects.`;
+
+Existing nearby nodes in the map:
+${nearbyNodesContext}
+
+Generate 6 diverse related ideas. If any connect to existing nodes, suggest those connections.`;
 
     try {
       const response = await fetch(
