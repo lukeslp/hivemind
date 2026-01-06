@@ -1313,6 +1313,12 @@ Generate 6 diverse related ideas exploring different aspects.`;
       const sanitizeJson = (jsonStr: string): string => {
         let sanitized = jsonStr;
 
+        // Pattern 0: Fix missing closing brace before comma (LLM omits } at end of object)
+        // Example: "contextPrompt": "value"\n,  → "contextPrompt": "value"\n},
+        sanitized = sanitized.replace(/("(?:[^"\\]|\\.)*")\s*\n\s*,\s*\n/g, '$1\n},\n');
+        sanitized = sanitized.replace(/(null|true|false)\s*\n\s*,\s*\n/g, '$1\n},\n');
+        sanitized = sanitized.replace(/(\d+(?:\.\d+)?)\s*\n\s*,\s*\n/g, '$1\n},\n');
+
         // Remove stray words after ANY valid JSON value (string, null, true, false, number)
         // Pattern 1: After quoted strings
         sanitized = sanitized.replace(/("(?:[^"\\]|\\.)*")\s*\n\s*[a-zA-Z][a-zA-Z0-9-_]*\s*\n(\s*[,}\]])/g, '$1\n$2');
