@@ -59,11 +59,18 @@ import {
   Check,
   Settings,
   MapPin,
+  Sun,
+  Moon,
+  Type,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { TEMPLATES, TEMPLATE_CATEGORIES, Template } from "@/lib/templates";
 import {
   Dialog,
@@ -78,6 +85,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // --- Constants & Config ---
 const HEX_SIZE = 80;
@@ -610,6 +618,30 @@ export default function HexMindApp() {
   // Smart expansion settings
   const [enableSmartExpansion, setEnableSmartExpansion] = useState(true);
   const [autoExpandingNodes, setAutoExpandingNodes] = useState<Set<string>>(new Set());
+
+  // Settings modal and preferences
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [fontSizeMultiplier, setFontSizeMultiplier] = useState(() => {
+    const saved = localStorage.getItem('hexmind_font_size');
+    return saved ? parseFloat(saved) : 1.0;
+  });
+  const [enableAnimations, setEnableAnimations] = useState(() => {
+    const saved = localStorage.getItem('hexmind_animations');
+    if (saved) return saved === 'true';
+    // Check for prefers-reduced-motion
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+  const [enableAutoSave, setEnableAutoSave] = useState(() => {
+    const saved = localStorage.getItem('hexmind_autosave');
+    return saved !== 'false'; // Default to true
+  });
+  const [enableSoundEffects, setEnableSoundEffects] = useState(() => {
+    const saved = localStorage.getItem('hexmind_sound');
+    return saved === 'true'; // Default to false
+  });
+
+  // Theme from context
+  const { theme, toggleTheme } = useTheme();
 
   // Interactive context prompts
   const [showContextPrompt, setShowContextPrompt] = useState(false);
