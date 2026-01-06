@@ -1461,7 +1461,25 @@ Be comprehensive but focused on the user's specific request.`;
     const targetNode = nodes[targetKey];
     if (!sourceNode || !targetNode || sourceKey === targetKey) return;
 
-    // Merge: combine text and descriptions, keep target position
+    // Sprint 4: Context Transfer - if source has location/context, transfer it instead of merging
+    if (sourceNode.location && !targetNode.location) {
+      const updatedTarget: HexNode = {
+        ...targetNode,
+        location: sourceNode.location,
+        linkedContext: [...(targetNode.linkedContext || []), sourceKey],
+      };
+      commitNodes({
+        ...nodes,
+        [targetKey]: updatedTarget,
+      });
+      setSelectedNodeId(targetKey);
+      setDraggedNodeId(null);
+      setDropTargetId(null);
+      toast.success(`Location context transferred from "${sourceNode.text}"!`);
+      return;
+    }
+
+    // Traditional merge: combine text and descriptions, keep target position
     const mergedNode: HexNode = {
       ...targetNode,
       text: `${targetNode.text} + ${sourceNode.text}`,
