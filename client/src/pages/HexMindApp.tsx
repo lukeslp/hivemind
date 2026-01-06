@@ -861,6 +861,20 @@ export default function HexMindApp() {
   const [contextResponse, setContextResponse] = useState("");
   const [contextHistory, setContextHistory] = useState<Record<string, string>>({});  // Track user-provided context per node
 
+  // LLM Over-generation control
+  const [generationsThisSession, setGenerationsThisSession] = useState(0);
+  const [maxGenerationsPerSession] = useState(100); // Configurable limit
+  const [lastAutoExpandTime, setLastAutoExpandTime] = useState(0);
+  const [isThrottled, setIsThrottled] = useState(false);
+
+  // Add Info modal state
+  const [showAddInfoModal, setShowAddInfoModal] = useState(false);
+  const [addInfoNodeId, setAddInfoNodeId] = useState<string | null>(null);
+  const [addInfoText, setAddInfoText] = useState("");
+
+  // Hover delay for FloatingActionBar
+  const hoverDelayTimer = useRef<NodeJS.Timeout | null>(null);
+
   // Viewport culling effect
   useEffect(() => {
     const container = containerRef.current;
@@ -1203,6 +1217,16 @@ export default function HexMindApp() {
     // Check if THIS specific node is already loading (allow other nodes to load in parallel)
     if (loadingNodes.has(key)) return;
 
+    // Check generation limit
+    if (generationsThisSession >= maxGenerationsPerSession) {
+      setIsThrottled(true);
+      toast.error("Generation limit reached for this session. Start a new session to continue.");
+      return;
+    }
+
+    // Increment generation counter
+    setGenerationsThisSession(prev => prev + 1);
+
     // Add this node to the loading set
     setLoadingNodes(prev => new Set([...Array.from(prev), key]));
 
@@ -1424,13 +1448,25 @@ Generate 6 diverse related ideas exploring different aspects.`;
       commitNodes(newNodes);
       if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
 
-      // Auto-expand flagged nodes in PARALLEL (non-blocking)
-      if (nodesToAutoExpand.length > 0) {
+      // Auto-expand flagged nodes in PARALLEL (non-blocking) with cooldown
+      if (nodesToAutoExpand.length > 0 && enableSmartExpansion) {
+        const now = Date.now();
+        const timeSinceLastExpand = now - lastAutoExpandTime;
+        const minCooldown = 2000; // 2 seconds between auto-expansions
+
+        if (timeSinceLastExpand < minCooldown) {
+          toast.info(`Auto-expansion throttled. Wait ${Math.ceil((minCooldown - timeSinceLastExpand) / 1000)}s`, {
+            duration: 2000,
+          });
+          return;
+        }
+
+        setLastAutoExpandTime(now);
         nodesToAutoExpand.forEach((expandNode, index) => {
           const expandKey = getNodeKey(expandNode.q, expandNode.r);
           setAutoExpandingNodes(prev => new Set([...Array.from(prev), expandKey]));
 
-          // Stagger start times for visual effect, but don't block with await
+          // Stagger start times for visual effect + cooldown, but don't block with await
           setTimeout(() => {
             generateNeighbors(expandNode, false).finally(() => {
               setAutoExpandingNodes(prev => {
@@ -1439,7 +1475,7 @@ Generate 6 diverse related ideas exploring different aspects.`;
                 return next;
               });
             });
-          }, index * 300);
+          }, index * 300 + minCooldown);
         });
       }
     } catch (error) {
@@ -1775,11 +1811,11 @@ Be comprehensive but focused on the user's specific request.`;
     const targetNode = nodes[targetKey];
     if (!sourceNode || !targetNode || sourceKey === targetKey) return;
 
-    // Sprint 4: Context Transfer - if source has location/context, transfer it instead of merging
-    if (sourceNode.location && !targetNode.location) {
+    // Sprint 4: Context Transfer - if source has contextInfo, transfer it instead of merging
+    if (sourceNode.contextInfo && !targetNode.contextInfo) {
       const updatedTarget: HexNode = {
         ...targetNode,
-        location: sourceNode.location,
+        contextInfo: sourceNode.contextInfo,
         linkedContext: [...(targetNode.linkedContext || []), sourceKey],
       };
       commitNodes({
@@ -1789,7 +1825,7 @@ Be comprehensive but focused on the user's specific request.`;
       setSelectedNodeId(targetKey);
       setDraggedNodeId(null);
       setDropTargetId(null);
-      toast.success(`Location context transferred from "${sourceNode.text}"!`);
+      toast.success(`Context info transferred from "${sourceNode.text}"!`);
       return;
     }
 
@@ -2751,10 +2787,10 @@ Example format:
                           </div>
                         )}
 
-                        {/* Location context indicator */}
-                        {node.location && (
+                        {/* Context Info indicator */}
+                        {node.contextInfo && (
                           <div className="absolute -bottom-1 -right-1 z-20 bg-blue-500 rounded-full p-1 shadow-lg">
-                            <MapPin className="w-3 h-3 text-foreground" />
+                            <Info className="w-3 h-3 text-foreground" />
                           </div>
                         )}
                       </div>
@@ -2770,14 +2806,14 @@ Example format:
           </div>
         </div>
 
-        {/* Floating Action Bar - 3 Essential Actions: Refresh, Deep Dive, Delete */}
+        {/* Floating Action Bar - 3 Essential Actions: Refresh, Make Image, Deep Dive */}
         {hoveredNode && hoveredNodeId && !editingNodeId && (
           <FloatingActionBar
             node={hoveredNode}
             position={getNodeScreenPosition(hoveredNode)}
             onRefresh={() => refreshSingleNode(hoveredNode)}
+            onGenerateImage={() => generateImage(hoveredNode)}
             onDeepDive={() => handleDeepDive(hoveredNode)}
-            onPrune={() => pruneNode(hoveredNodeId)}
             isLoading={loadingNodes.has(hoveredNodeId)}
             onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
             onMouseLeave={() => setHoveredNodeId(null)}
@@ -2985,18 +3021,18 @@ Example format:
                 </div>
               )}
 
-              {/* Location Context */}
-              {nodes[inspectedNodeId].location && (
+              {/* Context Info */}
+              {nodes[inspectedNodeId].contextInfo && (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
                   <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Location Context
+                    <Info className="w-4 h-4" />
+                    Context Info
                   </h4>
                   <p className="text-sm text-card-foreground">
-                    📍 {nodes[inspectedNodeId].location.address}
+                    {nodes[inspectedNodeId].contextInfo}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Drag this node onto others to transfer location context
+                    Drag this node onto others to transfer context info
                   </p>
                 </div>
               )}
