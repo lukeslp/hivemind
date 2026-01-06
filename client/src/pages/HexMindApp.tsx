@@ -568,7 +568,6 @@ export default function HexMindApp() {
   const [sessionName, setSessionName] = useState("");
 
   // Keyboard shortcuts modal
-  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
   // Filter state
   const [filterType, setFilterType] = useState<string | null>(null);
@@ -586,13 +585,9 @@ export default function HexMindApp() {
   const [copied, setCopied] = useState(false);
 
   // Quick tour modal
-  const [showTour, setShowTour] = useState(false);
 
   // Multi-cluster support
   const [clusters, setClusters] = useState<string[]>(["main"]); // List of cluster IDs
-  const [showNewClusterModal, setShowNewClusterModal] = useState(false);
-  const [newClusterCoords, setNewClusterCoords] = useState<{ q: number; r: number } | null>(null);
-  const [newClusterInput, setNewClusterInput] = useState("");
 
   // Smart expansion settings
   const [enableSmartExpansion, setEnableSmartExpansion] = useState(true);
@@ -857,12 +852,6 @@ export default function HexMindApp() {
       if (e.key === "Escape") {
         setSelectedNodeId(null);
         setEditingNodeId(null);
-        setShowKeyboardHelp(false);
-      }
-      // ? to show keyboard help
-      if (e.key === "?" && !editingNodeId) {
-        e.preventDefault();
-        setShowKeyboardHelp(true);
       }
     };
     window.addEventListener("keydown", handleKeyDown, { passive: false });
@@ -1605,16 +1594,17 @@ Example format:
   };
 
   // Create a new cluster at the clicked location
-  const createNewCluster = () => {
-    if (!newClusterCoords || !newClusterInput.trim()) return;
+  const createNewCluster = (coords: { q: number; r: number }) => {
+    const input = prompt("What's your new idea?");
+    if (!input || !input.trim()) return;
 
     const clusterId = `cluster_${Date.now()}`;
-    const key = getNodeKey(newClusterCoords.q, newClusterCoords.r);
+    const key = getNodeKey(coords.q, coords.r);
 
     const newNode: HexNode = {
-      q: newClusterCoords.q,
-      r: newClusterCoords.r,
-      text: newClusterInput.trim(),
+      q: coords.q,
+      r: coords.r,
+      text: input.trim(),
       description: "",
       type: "root",
       depth: 0,
@@ -1625,9 +1615,6 @@ Example format:
 
     commitNodes({ ...nodes, [key]: newNode });
     setClusters([...clusters, clusterId]);
-    setShowNewClusterModal(false);
-    setNewClusterInput("");
-    setNewClusterCoords(null);
     setSelectedNodeId(key);
     setInspectedNodeId(key);
 
@@ -1767,10 +1754,9 @@ Example format:
     const hexCoords = pixelToHex(screenX, screenY);
     const key = getNodeKey(hexCoords.q, hexCoords.r);
 
-    // Only open modal if this slot is empty
+    // Only create cluster if this slot is empty
     if (!nodes[key]) {
-      setNewClusterCoords(hexCoords);
-      setShowNewClusterModal(true);
+      createNewCluster(hexCoords);
     }
   };
 
@@ -1831,8 +1817,7 @@ Example format:
           const hexCoords = pixelToHex(screenX, screenY);
           const key = getNodeKey(hexCoords.q, hexCoords.r);
           if (!nodes[key]) {
-            setNewClusterCoords(hexCoords);
-            setShowNewClusterModal(true);
+            createNewCluster(hexCoords);
           }
         }
       }
@@ -2198,18 +2183,6 @@ Example format:
               </button>
             </TooltipTrigger>
             <TooltipContent>Filter by Type</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setShowKeyboardHelp(true)}
-                className="p-3 bg-neutral-900/90 border border-white/10 rounded-xl hover:bg-white/5"
-              >
-                <Keyboard className="w-5 h-5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Keyboard Shortcuts (?)</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -2595,19 +2568,6 @@ Example format:
             Or start from a template →
           </button>
 
-          {/* Tour Link */}
-          <p className="text-xs text-neutral-500">
-            First time?{" "}
-            <button
-              onClick={() => {
-                setShowWelcome(false);
-                setShowTour(true);
-              }}
-              className="text-indigo-400 hover:underline"
-            >
-              Take a quick tour
-            </button>
-          </p>
         </div>
       </Modal>
 
@@ -3219,64 +3179,6 @@ Example format:
         </div>
       </Modal>
 
-      {/* New Cluster Modal */}
-      <Modal
-        isOpen={showNewClusterModal}
-        onClose={() => {
-          setShowNewClusterModal(false);
-          setNewClusterInput("");
-          setNewClusterCoords(null);
-        }}
-        title="Start New Idea Cluster"
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-6">
-          <p className="text-sm text-neutral-400">
-            Create a new brainstorming cluster that can grow and connect to your existing ideas.
-          </p>
-
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-neutral-200">
-              What's your new idea?
-            </label>
-            <Input
-              value={newClusterInput}
-              onChange={(e) => setNewClusterInput(e.target.value)}
-              placeholder="Enter your concept, question, or topic..."
-              className="bg-neutral-800 border-white/10"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newClusterInput.trim()) {
-                  createNewCluster();
-                }
-              }}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              onClick={createNewCluster}
-              disabled={!newClusterInput.trim()}
-              className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Cluster
-            </Button>
-            <Button
-              onClick={() => {
-                setShowNewClusterModal(false);
-                setNewClusterInput("");
-                setNewClusterCoords(null);
-              }}
-              variant="outline"
-              className="border-white/10 text-neutral-400"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       {/* Context Prompt Modal */}
       <Modal
         isOpen={showContextPrompt}
@@ -3338,145 +3240,6 @@ Example format:
               Cancel
             </Button>
           </div>
-        </div>
-      </Modal>
-
-      {/* Keyboard Shortcuts Modal */}
-      <Modal
-        isOpen={showKeyboardHelp}
-        onClose={() => setShowKeyboardHelp(false)}
-        title="Keyboard Shortcuts"
-        maxWidth="max-w-lg"
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">Navigation</h3>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Move between nodes</span>
-                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Arrow Keys</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Deselect node</span>
-                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Esc</kbd>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">Actions</h3>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Undo</span>
-                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Ctrl+Z</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Redo</span>
-                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Ctrl+Shift+Z</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Search</span>
-                <kbd className="px-2 py-1 bg-neutral-800 border border-white/20 rounded text-xs font-mono">Ctrl+F</kbd>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">Interactions</h3>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Hover to see details</span>
-                <span className="text-xs text-neutral-500">Mouse hover</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Click to auto-expand</span>
-                <span className="text-xs text-neutral-500">Click node</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Long-press (mobile) or double-click for Deep Dive</span>
-                <span className="text-xs text-neutral-500">Long-press / Double-click</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Drag to merge nodes</span>
-                <span className="text-xs text-neutral-500">Drag & drop</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider">View</h3>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Pan canvas</span>
-                <span className="text-xs text-neutral-500">Click & drag</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Zoom in/out</span>
-                <span className="text-xs text-neutral-500">Mouse wheel</span>
-              </div>
-              <div className="flex items-center justify-between p-2 bg-white/5 rounded">
-                <span className="text-sm">Pinch to zoom (mobile)</span>
-                <span className="text-xs text-neutral-500">Two fingers</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Quick Tour Modal */}
-      <Modal
-        isOpen={showTour}
-        onClose={() => setShowTour(false)}
-        title="Quick Tour"
-        maxWidth="max-w-md"
-      >
-        <div className="space-y-4 text-sm">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-indigo-500/20 shrink-0">
-              <MousePointer2 className="w-5 h-5 text-indigo-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-white">Click any tile</p>
-              <p className="text-neutral-400">Generate related ideas in all empty adjacent slots</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/20 shrink-0">
-              <Sparkles className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-white">Mark as Key Theme</p>
-              <p className="text-neutral-400">Highlights important concepts and opens deep dive analysis</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/20 shrink-0">
-              <Merge className="w-5 h-5 text-cyan-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-white">Drag to merge</p>
-              <p className="text-neutral-400">Combine two ideas by dragging one onto another</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-purple-500/20 shrink-0">
-              <ImageIcon className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-white">Generate visuals</p>
-              <p className="text-neutral-400">Create AI images for any concept from the info panel</p>
-            </div>
-          </div>
-
-          <Button
-            onClick={() => setShowTour(false)}
-            className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700"
-          >
-            Got it!
-          </Button>
         </div>
       </Modal>
 
