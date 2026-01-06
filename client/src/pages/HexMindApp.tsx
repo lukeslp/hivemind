@@ -291,10 +291,10 @@ const ConfirmationModal = ({
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-neutral-900 border-white/10 max-w-sm">
+      <DialogContent className="bg-card border-border max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-white">{title}</DialogTitle>
-          <DialogDescription className="text-neutral-400 text-sm">{message}</DialogDescription>
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground text-sm">{message}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex justify-end gap-2">
@@ -603,7 +603,7 @@ const Minimap = ({
   return (
     <div
       ref={minimapRef}
-      className="bg-neutral-900/90 backdrop-blur border border-white/10 rounded-xl overflow-hidden cursor-crosshair shadow-xl"
+      className="bg-card/90 backdrop-blur border border-border rounded-xl overflow-hidden cursor-crosshair shadow-xl"
       style={{ width: MINIMAP_SIZE, height: MINIMAP_SIZE }}
       onClick={handleMinimapClick}
     >
@@ -680,7 +680,7 @@ const FloatingActionBar = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl px-2 py-1.5 flex items-center gap-1">
+      <div className="bg-card/95 backdrop-blur-xl border border-border rounded-full shadow-2xl px-2 py-1.5 flex items-center gap-1">
         {/* Refresh - Regenerate this node */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -688,7 +688,7 @@ const FloatingActionBar = ({
               onClick={onRefresh}
               disabled={isLoading}
               aria-label="Refresh this tile - regenerate content with AI"
-              className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-white/10"} ${style.color}`}
+              className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-accent"} ${style.color}`}
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1424,22 +1424,23 @@ Generate 6 diverse related ideas exploring different aspects.`;
       commitNodes(newNodes);
       if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
 
-      // Auto-expand flagged nodes with staggered timing for visual effect
+      // Auto-expand flagged nodes in PARALLEL (non-blocking)
       if (nodesToAutoExpand.length > 0) {
-        for (const expandNode of nodesToAutoExpand) {
+        nodesToAutoExpand.forEach((expandNode, index) => {
           const expandKey = getNodeKey(expandNode.q, expandNode.r);
           setAutoExpandingNodes(prev => new Set([...Array.from(prev), expandKey]));
 
-          // Small delay for visual staggering
-          await new Promise(r => setTimeout(r, 300));
-          await generateNeighbors(expandNode, false);
-
-          setAutoExpandingNodes(prev => {
-            const next = new Set(prev);
-            next.delete(expandKey);
-            return next;
-          });
-        }
+          // Stagger start times for visual effect, but don't block with await
+          setTimeout(() => {
+            generateNeighbors(expandNode, false).finally(() => {
+              setAutoExpandingNodes(prev => {
+                const next = new Set(prev);
+                next.delete(expandKey);
+                return next;
+              });
+            });
+          }, index * 300);
+        });
       }
     } catch (error) {
       console.error("AI Error:", error);
@@ -2286,7 +2287,7 @@ Example format:
   }, [visibleNodes, nodes]);
 
   return (
-    <div className="flex flex-col w-full h-screen bg-neutral-950 text-neutral-100 overflow-hidden font-sans select-none relative">
+    <div className="flex flex-col w-full h-screen bg-background text-foreground overflow-hidden font-sans select-none relative">
       {/* Background Grid */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -2301,22 +2302,22 @@ Example format:
         {/* Left Actions */}
         <div
           aria-label="Main Controls"
-          className="interactive-ui bg-neutral-900/90 backdrop-blur border border-white/10 p-2 px-4 rounded-xl flex items-center gap-2 sm:gap-4 pointer-events-auto shadow-2xl"
+          className="interactive-ui bg-card/90 backdrop-blur border border-border p-2 px-4 rounded-xl flex items-center gap-2 sm:gap-4 pointer-events-auto shadow-2xl"
         >
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" />
             <span className="font-bold hidden sm:inline">HexMind</span>
           </div>
-          <div className="h-6 w-px bg-white/10" />
+          <div className="h-6 w-px bg-accent" />
 
           {Object.keys(nodes).length === 0 ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-neutral-500 uppercase tracking-widest">
+              <span className="text-xs text-muted-foreground uppercase tracking-widest">
                 New Board
               </span>
               <button
                 onClick={() => setShowWelcome(true)}
-                className="p-2 hover:bg-white/10 rounded-lg text-white"
+                className="p-2 hover:bg-accent rounded-lg text-foreground"
               >
                 <Info className="w-4 h-4" />
               </button>
@@ -2325,7 +2326,7 @@ Example format:
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setBuildModalOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-foreground rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
               >
                 <FileText className="w-3 h-3" /> Build
               </button>
@@ -2333,14 +2334,14 @@ Example format:
               <div className="flex items-center gap-1">
                 <button
                   onClick={exportAsPNG}
-                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg"
+                  className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg"
                   title="Export PNG"
                 >
                   <Camera className="w-4 h-4" />
                 </button>
                 <button
                   onClick={exportAsImage}
-                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg text-xs"
+                  className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg text-xs"
                   title="Export SVG"
                 >
                   SVG
@@ -2348,18 +2349,18 @@ Example format:
               </div>
 
               {/* Undo/Redo */}
-              <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+              <div className="flex items-center gap-1 border-l border-border pl-2">
                 <button
                   onClick={handleUndo}
                   disabled={historyIndex === 0}
-                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-30"
+                  className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-30"
                 >
                   <Undo2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleRedo}
                   disabled={historyIndex === history.length - 1}
-                  className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-30"
+                  className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-30"
                 >
                   <Redo2 className="w-4 h-4" />
                 </button>
@@ -2371,18 +2372,18 @@ Example format:
                   setIsSearchOpen(!isSearchOpen);
                   setTimeout(() => searchInputRef.current?.focus(), 50);
                 }}
-                className={`p-2.5 rounded-lg transition-colors ${isSearchOpen ? "bg-white/20 text-white" : "hover:bg-white/10 text-neutral-300"}`}
+                className={`p-2.5 rounded-lg transition-colors ${isSearchOpen ? "bg-accent text-accent-foreground" : "hover:bg-accent text-muted-foreground"}`}
               >
                 <Search className="w-4 h-4" />
               </button>
 
               {/* Session Management */}
-              <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+              <div className="flex items-center gap-1 border-l border-border pl-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => setShowSessionsModal(true)}
-                      className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg"
+                      className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg"
                     >
                       <FolderOpen className="w-4 h-4" />
                     </button>
@@ -2393,7 +2394,7 @@ Example format:
                   <TooltipTrigger asChild>
                     <button
                       onClick={exportSession}
-                      className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg"
+                      className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg"
                     >
                       <Download className="w-4 h-4" />
                     </button>
@@ -2402,7 +2403,7 @@ Example format:
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <label className="p-2.5 hover:bg-white/10 text-neutral-300 rounded-lg cursor-pointer">
+                    <label className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg cursor-pointer">
                       <Upload className="w-4 h-4" />
                       <input
                         type="file"
@@ -2419,7 +2420,7 @@ Example format:
                     <button
                       onClick={generateShareUrl}
                       disabled={Object.keys(nodes).length === 0}
-                      className="p-2 hover:bg-white/10 text-neutral-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Share2 className="w-4 h-4" />
                     </button>
@@ -2433,12 +2434,12 @@ Example format:
 
         {/* Filter Panel (Floating) */}
         {filterType && (
-          <div className="interactive-ui pointer-events-auto absolute top-20 right-4 z-30 bg-neutral-900/90 backdrop-blur border border-white/10 p-3 rounded-xl animate-in slide-in-from-top-2 shadow-xl">
-            <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">Filter by Type</p>
+          <div className="interactive-ui pointer-events-auto absolute top-20 right-4 z-30 bg-card/90 backdrop-blur border border-border p-3 rounded-xl animate-in slide-in-from-top-2 shadow-xl">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Filter by Type</p>
             <div className="space-y-1">
               <button
                 onClick={() => setFilterType(null)}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm transition-colors text-white"
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-accent text-sm transition-colors text-foreground"
               >
                 All Types
               </button>
@@ -2449,10 +2450,10 @@ Example format:
                   <button
                     key={key}
                     onClick={() => setFilterType(key)}
-                    className={`w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm transition-colors flex items-center gap-2 ${filterType === key ? 'bg-white/10' : ''}`}
+                    className={`w-full text-left px-3 py-2 rounded-lg hover:bg-accent text-sm transition-colors flex items-center gap-2 ${filterType === key ? 'bg-accent' : ''}`}
                   >
                     <Icon className={`w-4 h-4 ${type.color}`} />
-                    <span className="text-white">{type.label}</span>
+                    <span className="text-foreground">{type.label}</span>
                   </button>
                 );
               })}
@@ -2462,18 +2463,18 @@ Example format:
 
         {/* Search Bar (Floating) */}
         {isSearchOpen && (
-          <div className="interactive-ui pointer-events-auto absolute top-20 left-4 z-30 bg-neutral-900/90 backdrop-blur border border-white/10 p-2 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-2 w-64 shadow-xl">
-            <Search className="w-4 h-4 text-neutral-500 ml-2" />
+          <div className="interactive-ui pointer-events-auto absolute top-20 left-4 z-30 bg-card/90 backdrop-blur border border-border p-2 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-2 w-64 shadow-xl">
+            <Search className="w-4 h-4 text-muted-foreground ml-2" />
             <Input
               ref={searchInputRef}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && cycleSearch()}
               placeholder="Find idea..."
-              className="bg-transparent border-none text-sm text-white placeholder:text-neutral-500"
+              className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground"
             />
             {searchResults.length > 0 && (
-              <span className="text-[10px] text-neutral-500 whitespace-nowrap px-2">
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap px-2">
                 {currentSearchIndex + 1}/{searchResults.length}
               </span>
             )}
@@ -2482,7 +2483,7 @@ Example format:
                 setIsSearchOpen(false);
                 setSearchQuery("");
               }}
-              className="p-1 hover:text-white text-neutral-500"
+              className="p-1 hover:text-foreground text-muted-foreground"
             >
               <X className="w-3 h-3" />
             </button>
@@ -2511,7 +2512,7 @@ Example format:
             <TooltipTrigger asChild>
               <button
                 onClick={() => setFilterType(filterType ? null : 'all')}
-                className={`p-3 bg-neutral-900/90 border border-white/10 rounded-xl transition-colors ${filterType ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                className={`p-3 bg-card/90 border border-border rounded-xl transition-colors ${filterType ? 'bg-accent' : 'hover:bg-accent/50'}`}
               >
                 <Filter className="w-5 h-5" />
               </button>
@@ -2523,7 +2524,7 @@ Example format:
             <TooltipTrigger asChild>
               <button
                 onClick={() => setShowMinimap(!showMinimap)}
-                className={`p-3 bg-neutral-900/90 border border-white/10 rounded-xl transition-colors ${showMinimap ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                className={`p-3 bg-card/90 border border-border rounded-xl transition-colors ${showMinimap ? 'bg-accent' : 'hover:bg-accent/50'}`}
               >
                 <Map className="w-5 h-5" />
               </button>
@@ -2533,7 +2534,7 @@ Example format:
 
           <button
             onClick={() => setViewState({ x: 0, y: 0, zoom: 0.8 })}
-            className="p-3 bg-neutral-900/90 border border-white/10 rounded-xl hover:bg-white/5"
+            className="p-3 bg-card/90 border border-border rounded-xl hover:bg-accent/50"
           >
             <Maximize2 className="w-5 h-5" />
           </button>
@@ -2700,14 +2701,14 @@ Example format:
                               transition-all duration-200
                               ${
                                 node.isKeyTheme
-                                  ? "fill-neutral-800 stroke-amber-400 stroke-[4]"
+                                  ? "fill-card stroke-amber-400 stroke-[4]"
                                   : node.isClusterRoot
-                                    ? `fill-neutral-800 ${getClusterColor(node.clusterId).stroke} stroke-[3]`
+                                    ? `fill-card ${getClusterColor(node.clusterId).stroke} stroke-[3]`
                                     : isSelected
-                                      ? `fill-neutral-800 ${style.border} stroke-[3]`
+                                      ? `fill-card ${style.border} stroke-[3]`
                                       : isHovered
-                                        ? `fill-neutral-850 ${style.border} stroke-[2]`
-                                        : `fill-neutral-900 stroke-neutral-700 stroke-[1]`
+                                        ? `fill-secondary ${style.border} stroke-[2]`
+                                        : `fill-background stroke-border stroke-[1]`
                               }
                             `}
                           />
@@ -2727,7 +2728,7 @@ Example format:
                             <>
                               <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${style.color} opacity-90 shrink-0`} />
                               <span
-                                className={`text-hex-node font-bold line-clamp-3 uppercase text-center ${node.isKeyTheme ? "text-white" : "text-neutral-200"}`}
+                                className={`text-hex-node font-bold line-clamp-3 uppercase text-center ${node.isKeyTheme ? "text-foreground" : "text-card-foreground"}`}
                                 style={{ wordBreak: 'break-word' }}
                               >
                                 {node.text}
@@ -2739,21 +2740,21 @@ Example format:
                         {/* Auto-expansion indicator */}
                         {isAutoExpanding && (
                           <div className="absolute -top-1 -right-1 z-20 bg-purple-500 rounded-full p-1 shadow-lg animate-bounce">
-                            <Zap className="w-3 h-3 text-white" />
+                            <Zap className="w-3 h-3 text-foreground" />
                           </div>
                         )}
 
                         {/* Sprint 5: Context Prompt indicator */}
                         {node.contextPrompt && !isAutoExpanding && (
                           <div className="absolute -top-1 -left-1 z-20 bg-indigo-500 rounded-full p-1.5 shadow-lg animate-pulse">
-                            <HelpCircle className="w-3 h-3 text-white" />
+                            <HelpCircle className="w-3 h-3 text-foreground" />
                           </div>
                         )}
 
                         {/* Location context indicator */}
                         {node.location && (
                           <div className="absolute -bottom-1 -right-1 z-20 bg-blue-500 rounded-full p-1 shadow-lg">
-                            <MapPin className="w-3 h-3 text-white" />
+                            <MapPin className="w-3 h-3 text-foreground" />
                           </div>
                         )}
                       </div>
@@ -2762,7 +2763,7 @@ Example format:
             })}
 
             {Object.keys(nodes).length === 0 && (
-              <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center text-neutral-600 pointer-events-none">
+              <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center text-muted-foreground pointer-events-none">
                 <Layout className="w-16 h-16 mb-4 opacity-10" />
               </div>
             )}
@@ -2793,31 +2794,31 @@ Example format:
       >
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
               Title
             </label>
             <Input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="bg-neutral-800 border-white/10 text-white"
+              className="bg-secondary border-border text-foreground"
               autoFocus
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
               Description
             </label>
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
-              className="w-full bg-neutral-800 border border-white/10 rounded-md p-3 text-sm text-neutral-300 h-24 resize-none outline-none focus:border-indigo-500"
+              className="w-full bg-secondary border border-border rounded-md p-3 text-sm text-neutral-300 h-24 resize-none outline-none focus:border-indigo-500"
             />
           </div>
           
           {/* Type Selector */}
           {editingNodeId && nodes[editingNodeId] && (
             <div>
-              <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
                 Type
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -2834,8 +2835,8 @@ Example format:
                     }}
                     className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
                       nodes[editingNodeId]?.type === type.id
-                        ? "bg-white/10 border-white/30 text-white"
-                        : "bg-white/5 border-transparent text-neutral-400 hover:bg-white/10"
+                        ? "bg-accent border-white/30 text-foreground"
+                        : "bg-accent/50 border-transparent text-muted-foreground hover:bg-accent"
                     }`}
                   >
                     <type.icon className={`w-4 h-4 ${type.color}`} />
@@ -2883,8 +2884,8 @@ Example format:
         <div className="text-center space-y-6">
           {/* Branding */}
           <div>
-            <h1 className="text-fluid-3xl font-bold text-white mb-2">HexMind</h1>
-            <p className="text-fluid-sm text-neutral-400">AI brainstorming on a hexagonal canvas</p>
+            <h1 className="text-fluid-3xl font-bold text-foreground mb-2">HexMind</h1>
+            <p className="text-fluid-sm text-muted-foreground">AI brainstorming on a hexagonal canvas</p>
           </div>
 
           {/* Input Section */}
@@ -2894,7 +2895,7 @@ Example format:
               onChange={(e) => setRootInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && rootInput.trim() && startBrainstorm()}
               placeholder="A concept, project, or question..."
-              className="w-full bg-neutral-800/50 border-white/10 text-base text-white placeholder:text-neutral-500 text-center"
+              className="w-full bg-secondary/50 border-border text-base text-foreground placeholder:text-muted-foreground text-center"
               autoFocus
             />
             <Button
@@ -2925,13 +2926,13 @@ Example format:
         <div 
           className="fixed bottom-4 left-4 right-4 sm:right-auto z-50 w-auto sm:w-[380px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto animate-in slide-in-from-left-2 duration-200"
         >
-          <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
+          <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-border rounded-2xl shadow-2xl p-6 pointer-events-auto">
             {/* Header with close button */}
             <div className="flex items-start justify-between mb-6">
-              <h2 className="text-fluid-2xl font-bold text-white pr-8">{nodes[inspectedNodeId].text}</h2>
+              <h2 className="text-fluid-2xl font-bold text-foreground pr-8">{nodes[inspectedNodeId].text}</h2>
               <button
                 onClick={() => setInspectedNodeId(null)}
-                className="text-neutral-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-accent"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2950,8 +2951,8 @@ Example format:
                         <Icon className={`w-6 h-6 ${style.color}`} />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">{node.type.toUpperCase()}</p>
-                        <p className="text-xs text-neutral-500">Depth: {node.depth}</p>
+                        <p className="text-sm font-bold text-foreground">{node.type.toUpperCase()}</p>
+                        <p className="text-xs text-muted-foreground">Depth: {node.depth}</p>
                       </div>
                     </>
                   );
@@ -2966,8 +2967,8 @@ Example format:
 
               {/* Description */}
               <div>
-                <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Description</h4>
-                <p className="text-fluid-base text-neutral-200 leading-relaxed">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Description</h4>
+                <p className="text-fluid-base text-card-foreground leading-relaxed">
                   {nodes[inspectedNodeId].description || "No description available."}
                 </p>
               </div>
@@ -2975,11 +2976,11 @@ Example format:
               {/* Generated Image */}
               {nodes[inspectedNodeId].imageUrl && (
                 <div>
-                  <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Generated Image</h4>
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Generated Image</h4>
                   <img
                     src={nodes[inspectedNodeId].imageUrl}
                     alt={nodes[inspectedNodeId].text}
-                    className="w-full rounded-xl border border-white/10 shadow-lg"
+                    className="w-full rounded-xl border border-border shadow-lg"
                   />
                 </div>
               )}
@@ -2991,10 +2992,10 @@ Example format:
                     <MapPin className="w-4 h-4" />
                     Location Context
                   </h4>
-                  <p className="text-sm text-neutral-200">
+                  <p className="text-sm text-card-foreground">
                     📍 {nodes[inspectedNodeId].location.address}
                   </p>
-                  <p className="text-xs text-neutral-400 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Drag this node onto others to transfer location context
                   </p>
                 </div>
@@ -3002,15 +3003,15 @@ Example format:
 
               {/* Node Stats */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                  <p className="text-xs text-neutral-500 mb-2 font-semibold">Coordinates</p>
-                  <p className="text-lg font-mono text-white font-bold">
+                <div className="bg-accent/50 border border-border rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground mb-2 font-semibold">Coordinates</p>
+                  <p className="text-lg font-mono text-foreground font-bold">
                     q: {nodes[inspectedNodeId].q}, r: {nodes[inspectedNodeId].r}
                   </p>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                  <p className="text-xs text-neutral-500 mb-2 font-semibold">Neighbors</p>
-                  <p className="text-lg font-mono text-white font-bold">
+                <div className="bg-accent/50 border border-border rounded-xl p-4">
+                  <p className="text-xs text-muted-foreground mb-2 font-semibold">Neighbors</p>
+                  <p className="text-lg font-mono text-foreground font-bold">
                     {DIRECTIONS.filter(dir => {
                       const nKey = getNodeKey(nodes[inspectedNodeId].q + dir.q, nodes[inspectedNodeId].r + dir.r);
                       return nodes[nKey] !== undefined;
@@ -3020,11 +3021,11 @@ Example format:
               </div>
 
               {/* Panel Actions - Organized into clear groups */}
-              <div className="flex flex-col gap-4 pt-4 border-t border-white/10">
+              <div className="flex flex-col gap-4 pt-4 border-t border-border">
                 {/* PRIMARY ACTION: Deep Dive - Most engaging feature */}
                 <button
                   onClick={() => handleDeepDive(nodes[inspectedNodeId])}
-                  className="flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/30 to-purple-500/30 hover:from-indigo-500/40 hover:to-purple-500/40 text-white text-base font-semibold transition-all shadow-lg hover:shadow-indigo-500/20"
+                  className="flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/30 to-purple-500/30 hover:from-indigo-500/40 hover:to-purple-500/40 text-foreground text-base font-semibold transition-all shadow-lg hover:shadow-indigo-500/20"
                 >
                   <BookOpen className="w-5 h-5" />
                   Deep Dive Analysis
@@ -3032,7 +3033,7 @@ Example format:
 
                 {/* Group 1: Generate & Enhance */}
                 <div>
-                  <h5 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Generate</h5>
+                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Generate</h5>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => generateImage(nodes[inspectedNodeId])}
@@ -3074,7 +3075,7 @@ Example format:
 
                 {/* Group 2: Edit & Organize */}
                 <div>
-                  <h5 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Edit & Organize</h5>
+                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Edit & Organize</h5>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => {
@@ -3082,7 +3083,7 @@ Example format:
                         setEditTitle(nodes[inspectedNodeId].text);
                         setEditDesc(nodes[inspectedNodeId].description || "");
                       }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 text-sm transition-colors"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent hover:bg-white/20 text-neutral-300 text-sm transition-colors"
                     >
                       <Edit3 className="w-4 h-4" />
                       Edit
@@ -3129,12 +3130,12 @@ Example format:
         {isDeepDiveLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mb-4" />
-            <p className="text-neutral-400">Analyzing...</p>
+            <p className="text-muted-foreground">Analyzing...</p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Export Actions */}
-            <div className="flex justify-end gap-2 pb-4 border-b border-white/10">
+            <div className="flex justify-end gap-2 pb-4 border-b border-border">
               <Button
                 onClick={() => {
                   const blob = new Blob([`# ${deepDiveTitle}\n\n${deepDiveContent}`], { type: 'text/markdown' });
@@ -3147,7 +3148,7 @@ Example format:
                 }}
                 variant="outline"
                 size="sm"
-                className="border-white/10 text-neutral-300"
+                className="border-border text-neutral-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download .md
@@ -3197,16 +3198,16 @@ Example format:
             <div className="prose prose-invert prose-lg max-w-none">
               <ReactMarkdown
                 components={{
-                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-white" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-white" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-neutral-200" {...props} />,
+                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-foreground" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-card-foreground" {...props} />,
                   p: ({node, ...props}) => <p className="text-base leading-relaxed mb-4 text-neutral-300" {...props} />,
                   ul: ({node, ...props}) => <ul className="space-y-2 mb-6 ml-6" {...props} />,
                   ol: ({node, ...props}) => <ol className="space-y-2 mb-6 ml-6" {...props} />,
                   li: ({node, ...props}) => <li className="text-base leading-relaxed text-neutral-300" {...props} />,
-                  strong: ({node, ...props}) => <strong className="font-bold text-white" {...props} />,
-                  em: ({node, ...props}) => <em className="italic text-neutral-200" {...props} />,
-                  code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-neutral-800 text-amber-400 text-sm" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-bold text-foreground" {...props} />,
+                  em: ({node, ...props}) => <em className="italic text-card-foreground" {...props} />,
+                  code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-secondary text-amber-400 text-sm" {...props} />,
                 }}
               >
                 {deepDiveContent || ""}
@@ -3230,7 +3231,7 @@ Example format:
           {!buildResult && !isBuilding && (
             <div className="flex flex-col gap-6">
               <div>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2 block">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
                   Quick Templates
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -3238,7 +3239,7 @@ Example format:
                     <button
                       key={i}
                       onClick={() => setBuildPrompt(t.prompt)}
-                      className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-neutral-300 hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:text-white transition-all"
+                      className="px-3 py-1.5 rounded-full bg-accent/50 border border-border text-xs text-neutral-300 hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:text-foreground transition-all"
                     >
                       {t.label}
                     </button>
@@ -3247,14 +3248,14 @@ Example format:
               </div>
 
               <div className="flex-1 flex flex-col gap-2">
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Custom Prompt
                 </label>
                 <textarea
                   value={buildPrompt}
                   onChange={(e) => setBuildPrompt(e.target.value)}
                   placeholder="Describe exactly what you need..."
-                  className="w-full flex-1 bg-neutral-800 border border-white/10 rounded-xl p-4 text-white focus:border-indigo-500 outline-none resize-none"
+                  className="w-full flex-1 bg-secondary border border-border rounded-xl p-4 text-foreground focus:border-indigo-500 outline-none resize-none"
                 />
               </div>
 
@@ -3272,14 +3273,14 @@ Example format:
           {isBuilding && (
             <div className="flex-1 flex items-center justify-center flex-col gap-4">
               <Loader2 className="w-10 h-10 animate-spin text-indigo-400" />
-              <p className="text-neutral-400 animate-pulse">
+              <p className="text-muted-foreground animate-pulse">
                 Constructing artifact...
               </p>
             </div>
           )}
           {buildResult && (
             <>
-              <div className="flex-1 overflow-y-auto bg-neutral-950 p-6 rounded-lg border border-white/10 custom-scrollbar mb-4">
+              <div className="flex-1 overflow-y-auto bg-neutral-950 p-6 rounded-lg border border-border custom-scrollbar mb-4">
                 <div className="prose prose-invert prose-sm max-w-none">
                   <ReactMarkdown>{buildResult}</ReactMarkdown>
                 </div>
@@ -3335,13 +3336,13 @@ Example format:
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-bold text-amber-400">Auto-saved Session</p>
-                          <p className="text-xs text-neutral-400">
+                          <p className="text-xs text-muted-foreground">
                             {Object.keys(data.nodes).length} nodes • Last saved: {new Date(data.timestamp).toLocaleString()}
                           </p>
                         </div>
                         <Button
                           onClick={loadAutosave}
-                          className="bg-amber-600 hover:bg-amber-500 text-white"
+                          className="bg-amber-600 hover:bg-amber-500 text-foreground"
                           size="sm"
                         >
                           <Clock className="w-4 h-4 mr-2" /> Recover
@@ -3363,7 +3364,7 @@ Example format:
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
               placeholder="Session name..."
-              className="flex-1 bg-neutral-800 border-white/10"
+              className="flex-1 bg-secondary border-border"
             />
             <Button
               onClick={() => {
@@ -3380,16 +3381,16 @@ Example format:
           {/* Sessions List */}
           <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
             {savedSessions.length === 0 ? (
-              <p className="text-neutral-500 text-center py-4">No saved sessions yet</p>
+              <p className="text-muted-foreground text-center py-4">No saved sessions yet</p>
             ) : (
               savedSessions.map((session) => (
                 <div
                   key={session.id}
-                  className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                  className="flex items-center justify-between p-3 bg-accent/50 border border-border rounded-lg hover:bg-accent transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-white truncate">{session.name}</p>
-                    <p className="text-xs text-neutral-500">
+                    <p className="font-medium text-foreground truncate">{session.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {new Date(session.date).toLocaleDateString()} • {session.nodeCount} nodes
                     </p>
                   </div>
@@ -3433,7 +3434,7 @@ Example format:
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
                 variant={selectedCategory === cat.id ? "default" : "outline"}
-                className={selectedCategory === cat.id ? "bg-yellow-500 text-black" : "border-white/10 text-neutral-300"}
+                className={selectedCategory === cat.id ? "bg-yellow-500 text-black" : "border-border text-neutral-300"}
                 size="sm"
               >
                 <span className="mr-2">{cat.icon}</span>
@@ -3450,17 +3451,17 @@ Example format:
                 .map((template) => (
                   <div
                     key={template.id}
-                    className="bg-white/5 border border-white/10 rounded-xl p-5 hover:border-yellow-500/50 hover:bg-white/10 transition-all cursor-pointer group"
+                    className="bg-accent/50 border border-border rounded-xl p-5 hover:border-yellow-500/50 hover:bg-accent transition-all cursor-pointer group"
                     onClick={() => selectTemplate(template)}
                   >
                     <div className="flex items-start gap-4">
                       <div className="text-4xl">{template.icon}</div>
                       <div className="flex-1 space-y-2">
-                        <h3 className="text-lg font-bold text-white group-hover:text-yellow-400 transition-colors">
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-yellow-400 transition-colors">
                           {template.name}
                         </h3>
-                        <p className="text-sm text-neutral-400">{template.description}</p>
-                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <p className="text-sm text-muted-foreground">{template.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>{template.nodes.length} nodes</span>
                           <span>•</span>
                           <span className="capitalize">{template.category.replace("-", " ")}</span>
@@ -3474,14 +3475,14 @@ Example format:
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-neutral-900 to-transparent pointer-events-none" />
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-white/10">
-            <p className="text-sm text-neutral-500">
+          <div className="flex justify-between items-center pt-4 border-t border-border">
+            <p className="text-sm text-muted-foreground">
               Templates provide a structured starting point. You can expand and customize them freely.
             </p>
             <Button
               onClick={() => setShowTemplates(false)}
               variant="ghost"
-              className="text-neutral-400"
+              className="text-muted-foreground"
             >
               Cancel
             </Button>
@@ -3502,11 +3503,11 @@ Example format:
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <span className="text-4xl">{pendingTemplate?.icon}</span>
-            <p className="text-sm text-neutral-400">{pendingTemplate?.description}</p>
+            <p className="text-sm text-muted-foreground">{pendingTemplate?.description}</p>
           </div>
 
           <div className="space-y-3">
-            <label className="text-sm font-medium text-neutral-200">
+            <label className="text-sm font-medium text-card-foreground">
               What specifically are you planning?
             </label>
             <Input
@@ -3521,7 +3522,7 @@ Example format:
                       ? "e.g., A coffee subscription service..."
                       : "Describe your specific idea..."
               }
-              className="bg-neutral-800 border-white/10"
+              className="bg-secondary border-border"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter" && templateContext.trim()) {
@@ -3529,7 +3530,7 @@ Example format:
                 }
               }}
             />
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted-foreground">
               The more specific you are, the more tailored your brainstorm will be.
             </p>
           </div>
@@ -3555,7 +3556,7 @@ Example format:
                 setPendingTemplate(null);
               }}
               variant="outline"
-              className="border-white/10 text-neutral-400"
+              className="border-border text-muted-foreground"
             >
               Use Generic
             </Button>
@@ -3575,7 +3576,7 @@ Example format:
         maxWidth="max-w-md"
       >
         <div className="space-y-4">
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-muted-foreground">
             {contextPromptQuestion}
           </p>
           <Input
@@ -3607,7 +3608,7 @@ Example format:
                 }
               }}
               disabled={!contextResponse.trim()}
-              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold"
+              className="flex-1 bg-purple-500 hover:bg-purple-600 text-foreground font-bold"
             >
               <Sparkles className="w-4 h-4 mr-2" />
               Generate
@@ -3619,7 +3620,7 @@ Example format:
                 setContextResponse("");
               }}
               variant="outline"
-              className="border-white/10 text-neutral-400"
+              className="border-border text-muted-foreground"
             >
               Cancel
             </Button>
@@ -3630,14 +3631,14 @@ Example format:
       {/* Share Modal */}
       <Modal isOpen={showShareModal} onClose={() => setShowShareModal(false)} title="Share Brainstorm">
         <div className="space-y-4">
-          <p className="text-sm text-neutral-400">
+          <p className="text-sm text-muted-foreground">
             Share this link with others to let them view and continue your brainstorm:
           </p>
           <div className="flex gap-2">
             <Input
               value={shareUrl}
               readOnly
-              className="flex-1 bg-neutral-800 border-white/10 text-white font-mono text-sm"
+              className="flex-1 bg-secondary border-border text-foreground font-mono text-sm"
               onClick={(e) => e.currentTarget.select()}
             />
             <Button
@@ -3657,7 +3658,7 @@ Example format:
               )}
             </Button>
           </div>
-          <div className="text-xs text-neutral-500 space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>💡 The link contains your entire brainstorm encoded in the URL</p>
             <p>🔒 No server storage - everything is client-side</p>
             <p>⚡ Recipients can view and expand your ideas</p>
