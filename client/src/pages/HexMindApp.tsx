@@ -335,14 +335,209 @@ const Modal = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className={`bg-neutral-900 border-white/10 ${maxWidth} max-h-[90vh] overflow-hidden flex flex-col`}
+        className={`bg-card border-border ${maxWidth} max-h-[90vh] overflow-hidden flex flex-col`}
       >
         <DialogHeader>
-          <DialogTitle className="text-white">{title}</DialogTitle>
-          {description && <DialogDescription className="text-neutral-400">{description}</DialogDescription>}
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
+          {description && <DialogDescription className="text-muted-foreground">{description}</DialogDescription>}
           {!description && <DialogDescription className="sr-only">{title} dialog</DialogDescription>}
         </DialogHeader>
         <div className="overflow-y-auto custom-scrollbar flex-1">{children}</div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Settings Modal Component
+const SettingsModal = ({
+  isOpen,
+  onClose,
+  theme,
+  toggleTheme,
+  creativity,
+  setCreativity,
+  fontSizeMultiplier,
+  setFontSizeMultiplier,
+  enableAnimations,
+  setEnableAnimations,
+  enableAutoSave,
+  setEnableAutoSave,
+  enableSoundEffects,
+  setEnableSoundEffects,
+  enableSmartExpansion,
+  setEnableSmartExpansion,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  theme: string;
+  toggleTheme?: () => void;
+  creativity: number;
+  setCreativity: (value: number) => void;
+  fontSizeMultiplier: number;
+  setFontSizeMultiplier: (value: number) => void;
+  enableAnimations: boolean;
+  setEnableAnimations: (value: boolean) => void;
+  enableAutoSave: boolean;
+  setEnableAutoSave: (value: boolean) => void;
+  enableSoundEffects: boolean;
+  setEnableSoundEffects: (value: boolean) => void;
+  enableSmartExpansion: boolean;
+  setEnableSmartExpansion: (value: boolean) => void;
+}) => {
+  const fontSizeOptions = [
+    { value: 0.85, label: "Small" },
+    { value: 1.0, label: "Medium" },
+    { value: 1.15, label: "Large" },
+    { value: 1.3, label: "Extra Large" },
+  ];
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-foreground">Settings</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Customize your HexMind experience
+          </DialogDescription>
+        </DialogHeader>
+        <div className="overflow-y-auto custom-scrollbar flex-1 space-y-6 py-4">
+          {/* Theme */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+              {theme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              Theme
+            </Label>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {theme === "dark" ? "Dark Mode" : "Light Mode"}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleTheme}
+                className="gap-2"
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                Switch to {theme === "dark" ? "Light" : "Dark"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Font Size */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <Type className="w-4 h-4" />
+              Font Size
+            </Label>
+            <div className="grid grid-cols-4 gap-2">
+              {fontSizeOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={fontSizeMultiplier === option.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFontSizeMultiplier(option.value)}
+                  className="text-xs"
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Current: {(fontSizeMultiplier * 100).toFixed(0)}%
+            </p>
+          </div>
+
+          {/* Creativity */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              AI Creativity
+            </Label>
+            <div className="space-y-2">
+              <Slider
+                value={[creativity]}
+                onValueChange={(val) => setCreativity(val[0])}
+                min={0}
+                max={1}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Focused</span>
+                <span>{(creativity * 100).toFixed(0)}%</span>
+                <span>Creative</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Smart Expansion */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Smart Expansion
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Auto-expand nodes with context
+              </p>
+            </div>
+            <Switch
+              checked={enableSmartExpansion}
+              onCheckedChange={setEnableSmartExpansion}
+            />
+          </div>
+
+          {/* Animations */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Animations
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Enable smooth transitions
+              </p>
+            </div>
+            <Switch
+              checked={enableAnimations}
+              onCheckedChange={setEnableAnimations}
+            />
+          </div>
+
+          {/* Auto-Save */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Save className="w-4 h-4" />
+                Auto-Save
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Automatically save your work
+              </p>
+            </div>
+            <Switch
+              checked={enableAutoSave}
+              onCheckedChange={setEnableAutoSave}
+            />
+          </div>
+
+          {/* Sound Effects */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                {enableSoundEffects ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                Sound Effects
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Play audio feedback
+              </p>
+            </div>
+            <Switch
+              checked={enableSoundEffects}
+              onCheckedChange={setEnableSoundEffects}
+            />
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -2277,32 +2472,17 @@ Example format:
           aria-label="View Controls"
           className="flex items-center gap-2 pointer-events-auto interactive-ui"
         >
-          {/* Creativity */}
-          <div className="bg-neutral-900/90 backdrop-blur border border-white/10 p-2 rounded-xl flex items-center gap-2">
-            <Thermometer className="w-4 h-4 text-orange-400" />
-            <Slider
-              value={[creativity]}
-              onValueChange={(v) => setCreativity(v[0])}
-              min={0}
-              max={1}
-              step={0.1}
-              className="w-16 sm:w-20"
-            />
-          </div>
-
-          {/* Smart Expansion Toggle */}
+          {/* Settings */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => setEnableSmartExpansion(!enableSmartExpansion)}
-                className={`p-3 bg-neutral-900/90 border border-white/10 rounded-xl transition-colors ${
-                  enableSmartExpansion ? 'bg-purple-500/20 border-purple-500/50' : 'hover:bg-white/5'
-                }`}
+                onClick={() => setShowSettingsModal(true)}
+                className="p-3 bg-card/90 backdrop-blur border border-border rounded-xl hover:bg-accent transition-colors"
               >
-                <Zap className={`w-5 h-5 ${enableSmartExpansion ? 'text-purple-400' : 'text-neutral-400'}`} />
+                <Settings className="w-5 h-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Smart Expansion {enableSmartExpansion ? 'ON' : 'OFF'}</TooltipContent>
+            <TooltipContent>Settings</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -3461,6 +3641,26 @@ Example format:
           </div>
         </div>
       </Modal>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        creativity={creativity}
+        setCreativity={setCreativity}
+        fontSizeMultiplier={fontSizeMultiplier}
+        setFontSizeMultiplier={setFontSizeMultiplier}
+        enableAnimations={enableAnimations}
+        setEnableAnimations={setEnableAnimations}
+        enableAutoSave={enableAutoSave}
+        setEnableAutoSave={setEnableAutoSave}
+        enableSoundEffects={enableSoundEffects}
+        setEnableSoundEffects={setEnableSoundEffects}
+        enableSmartExpansion={enableSmartExpansion}
+        setEnableSmartExpansion={setEnableSmartExpansion}
+      />
 
       {/* Minimap */}
       {showMinimap && Object.keys(nodes).length > 0 && containerRef.current && (
