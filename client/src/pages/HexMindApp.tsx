@@ -518,7 +518,7 @@ const FloatingActionBar = ({
 export default function HexMindApp() {
   // --- State ---
   const [nodes, setNodes] = useState<Record<string, HexNode>>({});
-  const [loadingNode, setLoadingNode] = useState<string | null>(null);
+  const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [imageLoading, setImageLoading] = useState<string | null>(null);
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
@@ -934,8 +934,12 @@ export default function HexMindApp() {
   // --- AI Functions ---
   const generateNeighbors = async (centerNode: HexNode, forceRefresh = false, additionalContext = "") => {
     const key = getNodeKey(centerNode.q, centerNode.r);
-    if (loadingNode) return;
-    setLoadingNode(key);
+
+    // Check if THIS specific node is already loading (allow other nodes to load in parallel)
+    if (loadingNodes.has(key)) return;
+
+    // Add this node to the loading set
+    setLoadingNodes(prev => new Set([...Array.from(prev), key]));
 
     const tempDesc =
       creativity < 0.3
@@ -1166,15 +1170,21 @@ Generate 6 diverse related ideas exploring different aspects.`;
       });
       commitNodes(newNodes);
     } finally {
-      setLoadingNode(null);
+      // Remove this node from the loading set
+      setLoadingNodes(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
   // Refresh a single node's title and description (not neighbors)
   const refreshSingleNode = async (node: HexNode) => {
     const key = getNodeKey(node.q, node.r);
-    if (loadingNode || node.pinned) return;
-    setLoadingNode(key);
+    if (loadingNodes.has(key) || node.pinned) return;
+
+    setLoadingNodes(prev => new Set([...Array.from(prev), key]));
 
     const tempDesc =
       creativity < 0.3
@@ -1238,7 +1248,11 @@ Regenerate with a fresh perspective.`;
     } catch (error) {
       console.error("Refresh node error:", error);
     } finally {
-      setLoadingNode(null);
+      setLoadingNodes(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -1738,7 +1752,7 @@ Example format:
     });
 
     // If node has contextPrompt, show modal instead of generating
-    if (hasEmptyNeighbors && node.contextPrompt && loadingNode !== key) {
+    if (hasEmptyNeighbors && node.contextPrompt && !loadingNodes.has(key)) {
       setContextPromptNode(node);
       setContextPromptQuestion(node.contextPrompt);
       setContextResponse("");
@@ -1746,8 +1760,8 @@ Example format:
       return;
     }
 
-    // Generate if there are empty slots and not already loading
-    if (hasEmptyNeighbors && loadingNode !== key) {
+    // Generate if there are empty slots and not already loading (parallel generation allowed)
+    if (hasEmptyNeighbors && !loadingNodes.has(key)) {
       generateNeighbors(node);
     }
   };
@@ -2297,7 +2311,7 @@ Example format:
               const Icon = style.icon;
               const isSelected = selectedNodeId === key;
               const isHovered = inspectedNodeId === key;
-              const isLoading = loadingNode === key;
+              const isLoading = loadingNodes.has(key);
               const isAutoExpanding = autoExpandingNodes.has(key);
 
               // Search and Filter Dimming
@@ -2478,7 +2492,7 @@ Example format:
             position={getNodeScreenPosition(hoveredNode)}
             onRefresh={() => refreshSingleNode(hoveredNode)}
             onPrune={() => pruneNode(hoveredNodeId)}
-            isLoading={loadingNode === hoveredNodeId}
+            isLoading={loadingNodes.has(hoveredNodeId)}
             onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
             onMouseLeave={() => setHoveredNodeId(null)}
           />
@@ -2764,10 +2778,10 @@ Example format:
                     </button>
                     <button
                       onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
-                      disabled={loadingNode === inspectedNodeId}
+                      disabled={loadingNodes.has(inspectedNodeId)}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 text-sm transition-colors disabled:opacity-50"
                     >
-                      {loadingNode === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      {loadingNodes.has(inspectedNodeId) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                       Refresh
                     </button>
                   </div>
@@ -3389,7 +3403,7 @@ Example format:
         className="sr-only absolute w-px h-px p-0 -m-px overflow-hidden"
         style={{ clip: 'rect(0, 0, 0, 0)' }}
       >
-        {loadingNode && `Generating ideas for ${nodes[loadingNode]?.text}`}
+        {loadingNodes.size > 0 && `Generating ideas for ${Array.from(loadingNodes).map(k => nodes[k]?.text).filter(Boolean).join(', ')}`}
       </div>
     </div>
   );
