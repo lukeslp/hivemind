@@ -2768,16 +2768,6 @@ Example format:
                             `}
                           />
 
-                          {/* "Needs Info" pulsing border overlay */}
-                          {node.contextPrompt && !isAutoExpanding && (
-                            <path
-                              d="M86.6 0L173.2 50V150L86.6 200L0 150V50L86.6 0Z"
-                              className="fill-none stroke-amber-500 needs-info-border"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          )}
-
                           {/* Inner glow for selected/hovered */}
                           {(isSelected || isHovered) && (
                             <path
@@ -2802,37 +2792,6 @@ Example format:
                             </>
                           )}
                         </div>
-
-                        {/* Auto-expansion indicator */}
-                        {isAutoExpanding && (
-                          <div className="absolute -top-1 -right-1 z-20 bg-purple-500 rounded-full p-1 shadow-lg animate-bounce">
-                            <Zap className="w-3 h-3 text-foreground" />
-                          </div>
-                        )}
-
-                        {/* "Needs Info" badge - top-right corner */}
-                        {node.contextPrompt && !isAutoExpanding && (
-                          <div
-                            className="absolute -top-2 -right-2 z-20 needs-info-badge"
-                            title="This tile needs more info from you"
-                            aria-label="Additional information required"
-                          >
-                            <div className="relative">
-                              {/* Badge background with glow */}
-                              <div className="absolute inset-0 bg-amber-500 rounded-full blur-sm opacity-50" />
-                              <div className="relative bg-amber-500 rounded-full p-2 shadow-lg border-2 border-amber-300">
-                                <HelpCircle className="w-4 h-4 text-white" strokeWidth={2.5} />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Context Info indicator */}
-                        {node.contextInfo && (
-                          <div className="absolute -bottom-1 -right-1 z-20 bg-blue-500 rounded-full p-1 shadow-lg">
-                            <Info className="w-3 h-3 text-foreground" />
-                          </div>
-                        )}
                       </div>
                 </div>
               );
