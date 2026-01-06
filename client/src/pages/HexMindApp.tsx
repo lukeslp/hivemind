@@ -2654,10 +2654,17 @@ Example format:
                   }}
                   className={`absolute group transition-all duration-200 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
                   onMouseEnter={() => {
-                    setHoveredNodeId(key);
-                    if (!inspectedNodeId) setInspectedNodeId(key);
+                    // Add 100ms delay to prevent flicker
+                    if (hoverDelayTimer.current) clearTimeout(hoverDelayTimer.current);
+                    hoverDelayTimer.current = setTimeout(() => {
+                      setHoveredNodeId(key);
+                      if (!inspectedNodeId) setInspectedNodeId(key);
+                    }, 100);
                   }}
-                  onMouseLeave={() => setHoveredNodeId(null)}
+                  onMouseLeave={() => {
+                    if (hoverDelayTimer.current) clearTimeout(hoverDelayTimer.current);
+                    setHoveredNodeId(null);
+                  }}
                 >
                       <div
                         draggable={!node.pinned && node.type !== 'root'}
@@ -3081,22 +3088,22 @@ Example format:
                     </button>
                     <button
                       onClick={() => {
-                        const location = prompt("Enter location (city, address, or coordinates):");
-                        if (location && location.trim()) {
+                        const contextInfo = prompt("Enter context info/notes:", nodes[inspectedNodeId].contextInfo || "");
+                        if (contextInfo !== null) {
                           commitNodes({
                             ...nodes,
                             [inspectedNodeId]: {
                               ...nodes[inspectedNodeId],
-                              location: { address: location.trim(), city: location.trim() }
+                              contextInfo: contextInfo.trim() || undefined
                             }
                           });
-                          toast.success("Location added! Drag this node onto others to transfer context.");
+                          toast.success(contextInfo.trim() ? "Context info added! Drag this node onto others to transfer context." : "Context info cleared.");
                         }
                       }}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-sm transition-colors"
                     >
-                      <MapPin className="w-4 h-4" />
-                      {nodes[inspectedNodeId].location ? "Update" : "Add"} Location
+                      <Info className="w-4 h-4" />
+                      {nodes[inspectedNodeId].contextInfo ? "Update" : "Add"} Info
                     </button>
                     <button
                       onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
