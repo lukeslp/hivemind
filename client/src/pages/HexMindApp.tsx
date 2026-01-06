@@ -977,7 +977,23 @@ Examples of concepts that REQUIRE contextPrompt:
 
 If you see concepts like "research", "planning", "analysis", "design", "strategy" without specifics, ADD contextPrompt.
 
-Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": "Specific question here or null" }, ... ] }`;
+CRITICAL: Return ONLY valid JSON. No explanations, no commentary, no extra text. Just pure JSON.
+
+Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": "Specific question here or null" }, ... ] }
+
+Example valid response:
+{
+  "branches": [
+    {
+      "title": "Market Analysis",
+      "description": "Research target market size and demographics.",
+      "type": "action",
+      "complexity": 3,
+      "autoExpand": false,
+      "contextPrompt": null
+    }
+  ]
+}`;
 
     const userQuery = `Central idea: "${centerNode.text}"
 Context: ${centerNode.description || "No additional context"}
@@ -1030,11 +1046,23 @@ Generate 6 diverse related ideas exploring different aspects.`;
 
       // Sanitize common LLM JSON hallucinations (random words inserted after values)
       const sanitizeJson = (jsonStr: string): string => {
-        // Remove stray words between property values and closing braces/brackets
-        // Matches: "value"\n  randomword\n} or "value"\n randomword\n]
-        let sanitized = jsonStr.replace(/("[\w\s-]+")\s*\n\s*[a-zA-Z]+\s*\n(\s*[}\]])/g, '$1\n$2');
-        // Also handle inline random words after values
-        sanitized = sanitized.replace(/("[\w\s-]+")\s+[a-zA-Z]+\s*([,}\]])/g, '$1$2');
+        let sanitized = jsonStr;
+
+        // Remove stray words after ANY valid JSON value (string, null, true, false, number)
+        // Pattern 1: After quoted strings
+        sanitized = sanitized.replace(/("(?:[^"\\]|\\.)*")\s*\n\s*[a-zA-Z][a-zA-Z0-9-_]*\s*\n(\s*[,}\]])/g, '$1\n$2');
+
+        // Pattern 2: After null, true, false
+        sanitized = sanitized.replace(/(null|true|false)\s*\n\s*[a-zA-Z][a-zA-Z0-9-_]*\s*\n(\s*[,}\]])/g, '$1\n$2');
+
+        // Pattern 3: After numbers
+        sanitized = sanitized.replace(/(\d+(?:\.\d+)?)\s*\n\s*[a-zA-Z][a-zA-Z0-9-_]*\s*\n(\s*[,}\]])/g, '$1\n$2');
+
+        // Pattern 4: Inline random words after values (same patterns)
+        sanitized = sanitized.replace(/("(?:[^"\\]|\\.)*")\s+[a-zA-Z][a-zA-Z0-9-_]*\s*([,}\]])/g, '$1$2');
+        sanitized = sanitized.replace(/(null|true|false)\s+[a-zA-Z][a-zA-Z0-9-_]*\s*([,}\]])/g, '$1$2');
+        sanitized = sanitized.replace(/(\d+(?:\.\d+)?)\s+[a-zA-Z][a-zA-Z0-9-_]*\s*([,}\]])/g, '$1$2');
+
         return sanitized;
       };
 
