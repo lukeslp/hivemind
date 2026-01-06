@@ -2757,15 +2757,17 @@ Example format:
                               ${
                                 node.contextPrompt && !isAutoExpanding
                                   ? "fill-card stroke-amber-400 stroke-[4]"
-                                  : node.isKeyTheme
-                                    ? "fill-card stroke-amber-400 stroke-[4]"
-                                    : node.isClusterRoot
-                                      ? `fill-card ${getClusterColor(node.clusterId).stroke} stroke-[3]`
-                                      : isSelected
-                                        ? `fill-card ${style.border} stroke-[4]`
-                                        : isHovered
-                                          ? `fill-secondary ${style.border} stroke-[3]`
-                                          : `fill-background stroke-border/80 stroke-[2]`
+                                  : isAutoExpanding
+                                    ? "fill-card stroke-purple-400 stroke-[4]"
+                                    : node.isKeyTheme
+                                      ? "fill-card stroke-amber-400 stroke-[4]"
+                                      : node.isClusterRoot
+                                        ? `fill-card ${getClusterColor(node.clusterId).stroke} stroke-[3]`
+                                        : isSelected
+                                          ? `fill-card ${style.border} stroke-[4]`
+                                          : isHovered
+                                            ? `fill-secondary ${style.border} stroke-[3]`
+                                            : `fill-background stroke-border/80 stroke-[2]`
                               }
                             `}
                           />
@@ -2787,12 +2789,15 @@ Example format:
                               {(() => {
                                 const IconComponent = node.contextPrompt && !isAutoExpanding
                                   ? HelpCircle
-                                  : Icon;
-                                return (
-                                  <IconComponent
-                                    className={`w-5 h-5 sm:w-6 sm:h-6 ${style.color} opacity-90 shrink-0`}
-                                  />
-                                );
+                                  : isAutoExpanding
+                                    ? Zap
+                                    : Icon;
+
+                                const iconClasses = `w-5 h-5 sm:w-6 sm:h-6 ${style.color} opacity-90 shrink-0 ${
+                                  isAutoExpanding ? 'animate-pulse' : ''
+                                }`;
+
+                                return <IconComponent className={iconClasses} />;
                               })()}
                               <span
                                 className={`text-hex-node font-bold line-clamp-3 uppercase text-center ${node.isKeyTheme ? "text-foreground" : "text-card-foreground"}`}
