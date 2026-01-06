@@ -1452,6 +1452,12 @@ Generate 6 diverse related ideas. If any connect to existing nodes, suggest thos
           const validType = NODE_TYPES[nodeType] ? nodeType : "concept";
           const newDepth = (centerNode.depth || 0) + 1;
 
+          // Extract and validate relatedTo connections
+          const relatedNodeKeys = (branches[i].relatedTo || [])
+            .filter((relKey: string) =>
+              currentNodes[relKey] && relKey !== key && relKey !== neighborKey
+            );
+
           const newNode: HexNode = {
             q: nQ,
             r: nR,
@@ -1463,6 +1469,7 @@ Generate 6 diverse related ideas. If any connect to existing nodes, suggest thos
             pinned: false,
             clusterId: centerNode.clusterId, // Inherit cluster from parent
             contextPrompt: branches[i].contextPrompt || undefined, // Store if LLM requests more info
+            relatedNodeKeys: relatedNodeKeys.length > 0 ? relatedNodeKeys : undefined,
           };
 
           newNodes[neighborKey] = newNode;
