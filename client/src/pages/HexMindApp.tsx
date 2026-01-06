@@ -2441,9 +2441,9 @@ Example format:
                             <Loader2 className={`w-6 h-6 animate-spin ${style.color}`} />
                           ) : (
                             <>
-                              <Icon className={`w-4 h-4 ${style.color} opacity-90 shrink-0`} />
+                              <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${style.color} opacity-90 shrink-0`} />
                               <span
-                                className={`text-[9px] sm:text-[10px] md:text-[11px] font-bold leading-tight line-clamp-3 uppercase tracking-wide text-center ${node.isKeyTheme ? "text-white" : "text-neutral-200"}`}
+                                className={`text-hex-node font-bold line-clamp-3 uppercase text-center ${node.isKeyTheme ? "text-white" : "text-neutral-200"}`}
                                 style={{ wordBreak: 'break-word' }}
                               >
                                 {node.text}
@@ -2598,8 +2598,8 @@ Example format:
         <div className="text-center space-y-6">
           {/* Branding */}
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">HexMind</h1>
-            <p className="text-sm text-neutral-400">AI brainstorming on a hexagonal canvas</p>
+            <h1 className="text-fluid-3xl font-bold text-white mb-2">HexMind</h1>
+            <p className="text-fluid-sm text-neutral-400">AI brainstorming on a hexagonal canvas</p>
           </div>
 
           {/* Input Section */}
@@ -2643,7 +2643,7 @@ Example format:
           <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-white/20 rounded-2xl shadow-2xl p-6 pointer-events-auto">
             {/* Header with close button */}
             <div className="flex items-start justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white pr-8">{nodes[inspectedNodeId].text}</h2>
+              <h2 className="text-fluid-2xl font-bold text-white pr-8">{nodes[inspectedNodeId].text}</h2>
               <button
                 onClick={() => setInspectedNodeId(null)}
                 className="text-neutral-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
@@ -2682,7 +2682,7 @@ Example format:
               {/* Description */}
               <div>
                 <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-3">Description</h4>
-                <p className="text-base text-neutral-200 leading-relaxed">
+                <p className="text-fluid-base text-neutral-200 leading-relaxed">
                   {nodes[inspectedNodeId].description || "No description available."}
                 </p>
               </div>
