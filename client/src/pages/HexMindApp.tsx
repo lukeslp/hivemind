@@ -2749,6 +2749,26 @@ Example format:
                           }`}
                           viewBox="0 0 173.2 200"
                         >
+                          {/* Pattern definition for context info */}
+                          {node.contextInfo && (
+                            <defs>
+                              <pattern
+                                id={`context-pattern-${key}`}
+                                patternUnits="userSpaceOnUse"
+                                width="8"
+                                height="8"
+                                patternTransform="rotate(45)"
+                              >
+                                <line
+                                  x1="0" y1="0" x2="0" y2="8"
+                                  stroke="rgb(59, 130, 246)"
+                                  strokeWidth="1.5"
+                                  strokeOpacity="0.15"
+                                />
+                              </pattern>
+                            </defs>
+                          )}
+
                           {/* Main hexagon path */}
                           <path
                             d="M86.6 0L173.2 50V150L86.6 200L0 150V50L86.6 0Z"
@@ -2779,6 +2799,14 @@ Example format:
                               className={`${style.bg} stroke-none`}
                             />
                           )}
+
+                          {/* Context info stripe overlay */}
+                          {node.contextInfo && (
+                            <path
+                              d="M86.6 0L173.2 50V150L86.6 200L0 150V50L86.6 0Z"
+                              fill={`url(#context-pattern-${key})`}
+                            />
+                          )}
                         </svg>
 
                         <div className="relative z-10 flex flex-col items-center gap-1 pointer-events-none px-3 max-w-[140px]">
@@ -2806,6 +2834,13 @@ Example format:
                                 {node.text}
                               </span>
                             </>
+                          )}
+
+                          {/* Context info mini-icon */}
+                          {node.contextInfo && (
+                            <div className="absolute bottom-0 right-0 opacity-60">
+                              <Info className="w-3 h-3 text-blue-400" />
+                            </div>
                           )}
                         </div>
                       </div>
