@@ -262,3 +262,86 @@
 .zoom-in-95 {
   animation-name: zoom-in-95;
 }
+
+/* ========================================
+   HEXMIND DESIGN SYSTEM ENHANCEMENTS
+   ======================================== */
+
+/* Hex drop shadows - provides depth hierarchy */
+@layer components {
+  .hex-shadow-default {
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))
+            drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
+  }
+
+  .hex-shadow-hover {
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.15))
+            drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  }
+
+  .hex-shadow-selected {
+    filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.2))
+            drop-shadow(0 10px 10px rgba(0, 0, 0, 0.1));
+  }
+
+  /* Dark mode - stronger shadows for depth */
+  .dark .hex-shadow-default {
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))
+            drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  }
+
+  .dark .hex-shadow-hover {
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.4))
+            drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  }
+
+  .dark .hex-shadow-selected {
+    filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.5))
+            drop-shadow(0 10px 10px rgba(0, 0, 0, 0.4));
+  }
+
+  /* "Needs Info" state classes */
+  .needs-info-border {
+    animation: needs-info-pulse 2s ease-in-out infinite;
+  }
+
+  .needs-info-badge {
+    animation: badge-bounce-subtle 2s ease-in-out infinite;
+  }
+}
+
+/* "Needs Info" animations */
+@keyframes needs-info-pulse {
+  0%, 100% {
+    stroke-opacity: 0.6;
+    stroke-width: 3;
+  }
+  50% {
+    stroke-opacity: 1.0;
+    stroke-width: 4;
+  }
+}
+
+@keyframes badge-bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Accessibility - respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .needs-info-border,
+  .needs-info-badge,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
