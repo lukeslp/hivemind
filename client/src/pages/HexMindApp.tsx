@@ -2444,6 +2444,20 @@ Example format:
                             <Zap className="w-3 h-3 text-white" />
                           </div>
                         )}
+
+                        {/* Sprint 5: Context Prompt indicator */}
+                        {node.contextPrompt && !isAutoExpanding && (
+                          <div className="absolute -top-1 -left-1 z-20 bg-indigo-500 rounded-full p-1.5 shadow-lg animate-pulse">
+                            <HelpCircle className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+
+                        {/* Location context indicator */}
+                        {node.location && (
+                          <div className="absolute -bottom-1 -right-1 z-20 bg-blue-500 rounded-full p-1 shadow-lg">
+                            <MapPin className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                 </div>
               );
