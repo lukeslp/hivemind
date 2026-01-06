@@ -2347,24 +2347,62 @@ Example format:
     };
   };
 
-  // Calculate connection lines between parent-child nodes
+  // Calculate connection lines between parent-child nodes and distant connections
   const connectionLines = useMemo(() => {
-    return Object.entries(visibleNodes)
+    const lines: Array<{
+      key: string;
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      color: string;
+      isDashed: boolean;
+    }> = [];
+
+    // Parent-child connections (solid lines)
+    Object.entries(visibleNodes)
       .filter(([, node]) => node.parentId && nodes[node.parentId])
-      .map(([key, node]) => {
+      .forEach(([key, node]) => {
         const parent = nodes[node.parentId!];
         const childPos = hexToPixel(node.q, node.r);
         const parentPos = hexToPixel(parent.q, parent.r);
         const style = NODE_TYPES[node.type] || NODE_TYPES.default;
-        return {
-          key,
+
+        lines.push({
+          key: `parent-${key}`,
           x1: parentPos.x,
           y1: parentPos.y,
           x2: childPos.x,
           y2: childPos.y,
           color: style.bgSolid,
-        };
+          isDashed: false,
+        });
       });
+
+    // Distant connections (dashed lines)
+    Object.entries(visibleNodes)
+      .filter(([, node]) => node.relatedNodeKeys?.length)
+      .forEach(([key, node]) => {
+        node.relatedNodeKeys!.forEach((relatedKey) => {
+          const relatedNode = visibleNodes[relatedKey];
+          if (relatedNode) {
+            const nodePos = hexToPixel(node.q, node.r);
+            const relatedPos = hexToPixel(relatedNode.q, relatedNode.r);
+
+            lines.push({
+              key: `distant-${key}-${relatedKey}`,
+              x1: nodePos.x,
+              y1: nodePos.y,
+              x2: relatedPos.x,
+              y2: relatedPos.y,
+              color: '#64748b', // Slate gray per spec
+              isDashed: true,
+            });
+          }
+        });
+      });
+
+    return lines;
   }, [visibleNodes, nodes]);
 
   return (
@@ -2657,15 +2695,16 @@ Example format:
             >
               {connectionLines.map((line) => (
                 <line
-                  key={`line-${line.key}`}
+                  key={line.key}
                   x1={line.x1}
                   y1={line.y1}
                   x2={line.x2}
                   y2={line.y2}
                   stroke={line.color}
                   strokeWidth={2}
-                  strokeOpacity={0.3}
+                  strokeOpacity={line.isDashed ? 0.25 : 0.3}
                   strokeLinecap="round"
+                  strokeDasharray={line.isDashed ? "8 4" : undefined}
                 />
               ))}
             </svg>
