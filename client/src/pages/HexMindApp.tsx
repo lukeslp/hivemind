@@ -637,6 +637,7 @@ export default function HexMindApp() {
   const [contextPromptNode, setContextPromptNode] = useState<HexNode | null>(null);
   const [contextPromptQuestion, setContextPromptQuestion] = useState("");
   const [contextResponse, setContextResponse] = useState("");
+  const [contextHistory, setContextHistory] = useState<Record<string, string>>({});  // Track user-provided context per node
 
   // Viewport culling effect
   useEffect(() => {
@@ -970,7 +971,7 @@ export default function HexMindApp() {
           ? "Wild, abstract, and out-of-the-box"
           : "Balanced and creative";
     
-    // Improved prompt to ensure exactly 6 branches with smart expansion and context prompts
+    // Enhanced prompt with MANDATORY context prompting
     const systemPrompt = `You are a brainstorming engine for a hexagonal mind map. Style: ${tempDesc}.
 Given a central idea, you MUST generate EXACTLY 6 distinct related nodes to fill all hexagonal neighbors.
 Each node should explore a different angle or aspect of the central idea.
@@ -984,9 +985,22 @@ IMPORTANT:
   3: Moderate complexity (could benefit from expansion)
   4-5: Rich, multi-faceted concept that SHOULD be expanded further
 - Mark branches with complexity 4-5 as "autoExpand": true (max 2 per generation)
-- If a branch is too broad/vague to expand without user input, add "contextPrompt": "What specific aspect?" (e.g., "city research" for a cafe → "What kind of cafe are you researching?")
 
-Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": null }, ... ] }`;
+CONTEXT PROMPTING (CRITICAL - MANDATORY FOR 2-3 BRANCHES):
+When a concept is too broad/vague to explore meaningfully without specifics, you MUST add a contextPrompt question.
+This is NOT optional - include contextPrompt for AT LEAST 2-3 branches per generation.
+
+Examples of concepts that REQUIRE contextPrompt:
+- "cafe business" → contextPrompt: "What type of cafe (coffee shop, internet cafe, bakery-cafe) and in which city?"
+- "market research" → contextPrompt: "Which specific market or industry are you targeting?"
+- "pricing strategy" → contextPrompt: "What product/service and who is your target customer?"
+- "location analysis" → contextPrompt: "Which city, neighborhood, or region should I analyze?"
+- "competition" → contextPrompt: "Who are your main competitors or what industry?"
+- "target audience" → contextPrompt: "Describe your ideal customer (age, income, interests)?"
+
+If you see concepts like "research", "planning", "analysis", "design", "strategy" without specifics, ADD contextPrompt.
+
+Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": "Specific question here or null" }, ... ] }`;
 
     const userQuery = `Central idea: "${centerNode.text}"
 Context: ${centerNode.description || "No additional context"}
@@ -3317,6 +3331,8 @@ Example format:
             autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter" && contextResponse.trim() && contextPromptNode) {
+                const nodeKey = getNodeKey(contextPromptNode.q, contextPromptNode.r);
+                setContextHistory({ ...contextHistory, [nodeKey]: contextResponse });
                 setShowContextPrompt(false);
                 generateNeighbors(contextPromptNode, false, contextResponse);
                 setContextPromptNode(null);
@@ -3328,6 +3344,8 @@ Example format:
             <Button
               onClick={() => {
                 if (contextPromptNode) {
+                  const nodeKey = getNodeKey(contextPromptNode.q, contextPromptNode.r);
+                  setContextHistory({ ...contextHistory, [nodeKey]: contextResponse });
                   setShowContextPrompt(false);
                   generateNeighbors(contextPromptNode, false, contextResponse);
                   setContextPromptNode(null);
