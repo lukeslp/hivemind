@@ -323,7 +323,7 @@ const Modal = ({
   title,
   description,
   children,
-  maxWidth = "max-w-2xl",
+  maxWidth = "max-w-lg",
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -647,11 +647,12 @@ const Minimap = ({
   );
 };
 
-// Floating Action Bar - simplified, appears near selected node
+// Floating Action Bar - 3 essential contextual actions
 const FloatingActionBar = ({
   node,
   position,
   onRefresh,
+  onDeepDive,
   onPrune,
   isLoading,
   onMouseEnter,
@@ -660,6 +661,7 @@ const FloatingActionBar = ({
   node: HexNode;
   position: { x: number; y: number };
   onRefresh: () => void;
+  onDeepDive: () => void;
   onPrune: () => void;
   isLoading: boolean;
   onMouseEnter: () => void;
@@ -696,6 +698,20 @@ const FloatingActionBar = ({
             </button>
           </TooltipTrigger>
           <TooltipContent>Refresh</TooltipContent>
+        </Tooltip>
+
+        {/* Deep Dive - Detailed analysis (engagement feature) */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onDeepDive}
+              aria-label="Deep Dive - Get comprehensive AI analysis of this concept"
+              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-indigo-500/20 text-indigo-400 transition-all"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Deep Dive</TooltipContent>
         </Tooltip>
 
         {/* Delete - Remove node (non-root only) */}
@@ -2747,12 +2763,13 @@ Example format:
           </div>
         </div>
 
-        {/* Floating Action Bar - Quick actions only (Refresh/Delete) */}
+        {/* Floating Action Bar - 3 Essential Actions: Refresh, Deep Dive, Delete */}
         {hoveredNode && hoveredNodeId && !editingNodeId && (
           <FloatingActionBar
             node={hoveredNode}
             position={getNodeScreenPosition(hoveredNode)}
             onRefresh={() => refreshSingleNode(hoveredNode)}
+            onDeepDive={() => handleDeepDive(hoveredNode)}
             onPrune={() => pruneNode(hoveredNodeId)}
             isLoading={loadingNodes.has(hoveredNodeId)}
             onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
