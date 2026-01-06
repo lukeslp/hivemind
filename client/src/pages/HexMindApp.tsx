@@ -58,6 +58,7 @@ import {
   Copy,
   Check,
   Settings,
+  MapPin,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -234,6 +235,23 @@ interface HexNode {
   clusterId?: string;       // Identifies which cluster this node belongs to
   isClusterRoot?: boolean;  // True for root nodes of each cluster
   contextPrompt?: string;   // Question to ask user before expanding (e.g., "What kind of cafe?")
+  // Sprint 3: Enhanced artifacts
+  location?: {
+    address: string;
+    city?: string;
+    coordinates?: { lat: number; lng: number };
+    metadata?: any; // Demographics, pricing data, etc.
+  };
+  codeSnippet?: {
+    language: string;
+    code: string;
+  };
+  visualization?: {
+    type: 'chart' | 'map' | 'timeline' | 'diagram';
+    data: any;
+    config?: any;
+  };
+  linkedContext?: string[]; // Array of node keys for context transfer (Sprint 4)
 }
 
 interface ViewState {
@@ -2635,6 +2653,22 @@ Example format:
                 </div>
               )}
 
+              {/* Location Context */}
+              {nodes[inspectedNodeId].location && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                  <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Location Context
+                  </h4>
+                  <p className="text-sm text-neutral-200">
+                    📍 {nodes[inspectedNodeId].location.address}
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-2">
+                    Drag this node onto others to transfer location context
+                  </p>
+                </div>
+              )}
+
               {/* Node Stats */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -2676,6 +2710,25 @@ Example format:
                     >
                       {imageLoading === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
                       {nodes[inspectedNodeId].imageUrl ? "Regen Image" : "Image"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const location = prompt("Enter location (city, address, or coordinates):");
+                        if (location && location.trim()) {
+                          commitNodes({
+                            ...nodes,
+                            [inspectedNodeId]: {
+                              ...nodes[inspectedNodeId],
+                              location: { address: location.trim(), city: location.trim() }
+                            }
+                          });
+                          toast.success("Location added! Drag this node onto others to transfer context.");
+                        }
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-sm transition-colors"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      {nodes[inspectedNodeId].location ? "Update" : "Add"} Location
                     </button>
                     <button
                       onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
