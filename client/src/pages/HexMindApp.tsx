@@ -1286,7 +1286,8 @@ Example valid response:
 
     const userQuery = `Central idea: "${centerNode.text}"
 Context: ${centerNode.description || "No additional context"}
-${additionalContext ? `Additional user input: ${additionalContext}` : ""}
+${centerNode.contextInfo ? `Additional context: ${centerNode.contextInfo}` : ""}
+${additionalContext ? `User input: ${additionalContext}` : ""}
 Generate 6 diverse related ideas exploring different aspects.`;
 
     try {
@@ -2747,7 +2748,9 @@ Example format:
                             className={`
                               transition-all duration-200
                               ${
-                                node.isKeyTheme
+                                node.contextPrompt && !isLoading
+                                  ? "fill-card stroke-indigo-400 stroke-[3] animate-pulse"
+                                  : node.isKeyTheme
                                   ? "fill-card stroke-amber-400 stroke-[4]"
                                   : node.isClusterRoot
                                     ? `fill-card ${getClusterColor(node.clusterId).stroke} stroke-[3]`
