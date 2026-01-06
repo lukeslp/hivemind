@@ -432,8 +432,6 @@ const FloatingActionBar = ({
   position,
   onRefresh,
   onPrune,
-  onSettings,
-  onHelp,
   isLoading,
   onMouseEnter,
   onMouseLeave,
@@ -442,8 +440,6 @@ const FloatingActionBar = ({
   position: { x: number; y: number };
   onRefresh: () => void;
   onPrune: () => void;
-  onSettings: () => void;
-  onHelp: () => void;
   isLoading: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -462,13 +458,13 @@ const FloatingActionBar = ({
       onMouseLeave={onMouseLeave}
     >
       <div className="bg-neutral-900/95 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl px-2 py-1.5 flex items-center gap-1">
-        {/* Refresh */}
+        {/* Refresh - Regenerate this node */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={onRefresh}
               disabled={isLoading}
-              aria-label="Refresh this tile"
+              aria-label="Refresh this tile - regenerate content with AI"
               className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-white/10"} ${style.color}`}
             >
               {isLoading ? (
@@ -481,13 +477,13 @@ const FloatingActionBar = ({
           <TooltipContent>Refresh</TooltipContent>
         </Tooltip>
 
-        {/* Delete */}
+        {/* Delete - Remove node (non-root only) */}
         {node.type !== "root" && (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={onPrune}
-                aria-label="Delete node"
+                aria-label="Delete this node and its children"
                 className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-red-500/20 text-red-400 transition-all"
               >
                 <Trash2 className="w-4 h-4" />
@@ -496,36 +492,6 @@ const FloatingActionBar = ({
             <TooltipContent>Delete</TooltipContent>
           </Tooltip>
         )}
-
-        <div className="w-px h-5 bg-white/10" />
-
-        {/* Settings */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onSettings}
-              aria-label="Settings"
-              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-white/10 text-neutral-400 transition-all"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Settings</TooltipContent>
-        </Tooltip>
-
-        {/* Help */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onHelp}
-              aria-label="Help"
-              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-white/10 text-neutral-400 transition-all"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Help</TooltipContent>
-        </Tooltip>
       </div>
     </div>
   );
@@ -2482,15 +2448,13 @@ Example format:
           </div>
         </div>
 
-        {/* Floating Action Bar - shows on hover only */}
+        {/* Floating Action Bar - Quick actions only (Refresh/Delete) */}
         {hoveredNode && hoveredNodeId && !editingNodeId && (
           <FloatingActionBar
             node={hoveredNode}
             position={getNodeScreenPosition(hoveredNode)}
             onRefresh={() => refreshSingleNode(hoveredNode)}
             onPrune={() => pruneNode(hoveredNodeId)}
-            onSettings={() => setFilterType(filterType ? null : 'all')}
-            onHelp={() => setShowKeyboardHelp(true)}
             isLoading={loadingNode === hoveredNodeId}
             onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
             onMouseLeave={() => setHoveredNodeId(null)}
@@ -2730,77 +2694,81 @@ Example format:
                 </div>
               </div>
 
-              {/* Panel Actions */}
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-white/10">
-                {/* Generate Image */}
-                <button
-                  onClick={() => generateImage(nodes[inspectedNodeId])}
-                  disabled={imageLoading === inspectedNodeId}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-sm transition-colors"
-                >
-                  {imageLoading === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-                  {nodes[inspectedNodeId].imageUrl ? "Regen" : "Image"}
-                </button>
-
-                {/* Refresh/Redo This Node */}
-                <button
-                  onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
-                  disabled={loadingNode === inspectedNodeId}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 text-sm transition-colors"
-                >
-                  {loadingNode === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  Redo
-                </button>
-
-                {/* Edit */}
-                <button
-                  onClick={() => {
-                    setEditingNodeId(inspectedNodeId);
-                    setEditTitle(nodes[inspectedNodeId].text);
-                    setEditDesc(nodes[inspectedNodeId].description || "");
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 text-sm transition-colors"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Edit
-                </button>
-
-                {/* Add Custom Child */}
-                <button
-                  onClick={() => handleManualAdd(nodes[inspectedNodeId])}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add
-                </button>
-
-                {/* Key Theme Toggle - visual emphasis only */}
-                <button
-                  onClick={() => {
-                    const isNowKeyTheme = !nodes[inspectedNodeId].isKeyTheme;
-                    commitNodes({
-                      ...nodes,
-                      [inspectedNodeId]: { ...nodes[inspectedNodeId], isKeyTheme: isNowKeyTheme },
-                    });
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    nodes[inspectedNodeId].isKeyTheme
-                      ? "bg-amber-500/30 text-amber-300"
-                      : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {nodes[inspectedNodeId].isKeyTheme ? "Key" : "Mark"}
-                </button>
-
-                {/* Deep Dive */}
+              {/* Panel Actions - Organized into clear groups */}
+              <div className="flex flex-col gap-4 pt-4 border-t border-white/10">
+                {/* PRIMARY ACTION: Deep Dive - Most engaging feature */}
                 <button
                   onClick={() => handleDeepDive(nodes[inspectedNodeId])}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-400 text-sm transition-colors"
+                  className="flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/30 to-purple-500/30 hover:from-indigo-500/40 hover:to-purple-500/40 text-white text-base font-semibold transition-all shadow-lg hover:shadow-indigo-500/20"
                 >
-                  <BookOpen className="w-4 h-4" />
-                  Dive
+                  <BookOpen className="w-5 h-5" />
+                  Deep Dive Analysis
                 </button>
+
+                {/* Group 1: Generate & Enhance */}
+                <div>
+                  <h5 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Generate</h5>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => generateImage(nodes[inspectedNodeId])}
+                      disabled={imageLoading === inspectedNodeId}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-sm transition-colors disabled:opacity-50"
+                    >
+                      {imageLoading === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                      {nodes[inspectedNodeId].imageUrl ? "Regen Image" : "Image"}
+                    </button>
+                    <button
+                      onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
+                      disabled={loadingNode === inspectedNodeId}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 text-sm transition-colors disabled:opacity-50"
+                    >
+                      {loadingNode === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {/* Group 2: Edit & Organize */}
+                <div>
+                  <h5 className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Edit & Organize</h5>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingNodeId(inspectedNodeId);
+                        setEditTitle(nodes[inspectedNodeId].text);
+                        setEditDesc(nodes[inspectedNodeId].description || "");
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 text-sm transition-colors"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleManualAdd(nodes[inspectedNodeId])}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Child
+                    </button>
+                    <button
+                      onClick={() => {
+                        const isNowKeyTheme = !nodes[inspectedNodeId].isKeyTheme;
+                        commitNodes({
+                          ...nodes,
+                          [inspectedNodeId]: { ...nodes[inspectedNodeId], isKeyTheme: isNowKeyTheme },
+                        });
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                        nodes[inspectedNodeId].isKeyTheme
+                          ? "bg-amber-500/30 text-amber-300"
+                          : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      {nodes[inspectedNodeId].isKeyTheme ? "Key Theme" : "Mark Key"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
