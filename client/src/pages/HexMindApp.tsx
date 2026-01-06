@@ -255,6 +255,7 @@ interface HexNode {
     config?: any;
   };
   linkedContext?: string[]; // Array of node keys for context transfer (Sprint 4)
+  relatedNodeKeys?: string[];  // LLM-suggested distant connections
 }
 
 interface ViewState {
@@ -1211,6 +1212,25 @@ export default function HexMindApp() {
   };
 
   // --- AI Functions ---
+  // Helper to get nearest nodes for LLM context (for suggesting distant connections)
+  const getNearestNodes = (centerNode: HexNode, maxNodes: number = 10): string => {
+    const centerPos = { x: centerNode.q, y: centerNode.r };
+
+    const allNodes = Object.entries(nodes)
+      .map(([key, node]) => ({
+        key,
+        node,
+        distance: Math.abs(node.q - centerPos.x) + Math.abs(node.r - centerPos.y),
+      }))
+      .filter(({ key }) => key !== getNodeKey(centerNode.q, centerNode.r))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, maxNodes);
+
+    return allNodes
+      .map(({ key, node }) => `- "${node.text}" [${node.type}] (${key})`)
+      .join('\n');
+  };
+
   const generateNeighbors = async (centerNode: HexNode, forceRefresh = false, additionalContext = "") => {
     const key = getNodeKey(centerNode.q, centerNode.r);
 
