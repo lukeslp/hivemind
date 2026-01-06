@@ -3,16 +3,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Router, Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import HexMindApp from "./pages/HexMindApp";
+import HiveMindApp from "./pages/HiveMindApp";
 
-// Base path for subpath deployment (e.g., /hexmind/)
+// Base path for subpath deployment (e.g., /hivemind/)
 const BASE_PATH = import.meta.env.BASE_URL?.replace(/\/$/, '') || '';
 
 function AppRouter() {
   return (
     <Router base={BASE_PATH}>
       <Switch>
-        <Route path={"/"} component={HexMindApp} />
+        <Route path={"/"} component={HiveMindApp} />
       </Switch>
     </Router>
   );

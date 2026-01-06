@@ -1,5 +1,5 @@
 /**
- * HexMind Template Library
+ * HiveMind Template Library
  * Pre-built brainstorm templates for common use cases
  */
 

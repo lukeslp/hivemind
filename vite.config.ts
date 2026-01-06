@@ -7,7 +7,7 @@ import { defineConfig } from "vite";
 const plugins = [react(), tailwindcss()];
 
 export default defineConfig({
-  base: '/hexmind/',
+  base: '/hivemind/',
   plugins,
   resolve: {
     alias: {

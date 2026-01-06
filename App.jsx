@@ -495,7 +495,7 @@ const App = () => {
   const saveMap = async () => {
     if (!user || !saveName.trim()) return;
     try {
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'hexmaps', Date.now().toString()), {
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'hivemaps', Date.now().toString()), {
         name: saveName,
         nodes: JSON.stringify(nodes),
         createdAt: new Date()
@@ -511,7 +511,7 @@ const App = () => {
 
   const loadMaps = async () => {
     if (!user) return;
-    const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'hexmaps'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'hivemaps'), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
     setSavedMaps(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   };
@@ -642,7 +642,7 @@ const App = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hexmind-export-${Date.now()}.svg`;
+    a.download = `hivemind-export-${Date.now()}.svg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -665,7 +665,7 @@ const App = () => {
         <div aria-label="Main Controls" className="interactive-ui bg-neutral-900/90 backdrop-blur border border-white/10 p-2 px-4 rounded-xl flex items-center gap-2 sm:gap-4 pointer-events-auto shadow-2xl">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-            <span className="font-bold hidden sm:inline">HexMind</span>
+            <span className="font-bold hidden sm:inline">HiveMind</span>
           </div>
           <div className="h-6 w-px bg-white/10" />
           
@@ -840,7 +840,7 @@ const App = () => {
       </main>
 
       {/* WELCOME MODAL */}
-      <Modal isOpen={showWelcome} onClose={() => setShowWelcome(false)} title="Welcome to HexMind">
+      <Modal isOpen={showWelcome} onClose={() => setShowWelcome(false)} title="Welcome to HiveMind">
         <div className="flex flex-col gap-6 text-center">
            <div className="flex items-center justify-center">
              <div className="relative">
@@ -852,7 +852,7 @@ const App = () => {
            <div className="space-y-2">
              <h2 className="text-2xl font-bold text-white">Ignite Your Brainstorming</h2>
              <p className="text-neutral-400">
-               HexMind uses AI to generate an infinite web of connected ideas. 
+               HiveMind uses AI to generate an infinite web of connected ideas.
                Enter a seed concept below, then click tiles to expand your hive.
              </p>
            </div>
@@ -1060,7 +1060,7 @@ const App = () => {
                 <div className="flex gap-2">
                   <button onClick={() => loadMapEntry(map)} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30"><FolderOpen className="w-4 h-4" /></button>
                   <button onClick={() => setConfirmModal({ isOpen: true, title: "Delete Save?", onConfirm: async () => { 
-                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'hexmaps', map.id)); 
+                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'hivemaps', map.id)); 
                         loadMaps(); 
                       } })} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30"><Trash2 className="w-4 h-4" /></button>
                 </div>

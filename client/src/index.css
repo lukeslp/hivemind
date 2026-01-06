@@ -199,7 +199,7 @@
     }
   }
 
-  /* HexMind custom scrollbar */
+  /* HiveMind custom scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
@@ -264,7 +264,7 @@
 }
 
 /* ========================================
-   HEXMIND DESIGN SYSTEM ENHANCEMENTS
+   HIVEMIND DESIGN SYSTEM ENHANCEMENTS
    ======================================== */
 
 /* Hex drop shadows - provides depth hierarchy */

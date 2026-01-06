@@ -1,4 +1,4 @@
-# HexMind v2.2 Improvement Plan
+# HiveMind v2.2 Improvement Plan
 
 ## Analysis Summary
 

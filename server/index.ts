@@ -16,8 +16,8 @@ async function startServer() {
       ? path.resolve(__dirname, "public")
       : path.resolve(__dirname, "..", "dist", "public");
 
-  // Base path for serving under /hexmind/ subpath
-  const basePath = process.env.BASE_PATH || '/hexmind';
+  // Base path for serving under /hivemind/ subpath
+  const basePath = process.env.BASE_PATH || '/hivemind';
 
   // Serve static files at the base path
   app.use(basePath, express.static(staticPath));

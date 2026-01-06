@@ -1,7 +1,7 @@
-# HexMind Design Ideas
+# HiveMind Design Ideas
 
 ## Overview
-HexMind is a spatial, non-linear brainstorming tool using AI to expand ideas into an infinite hexagonal grid. The design must support the "hive mind" concept while maintaining clarity for complex idea networks.
+HiveMind is a spatial, non-linear brainstorming tool using AI to expand ideas into an infinite hexagonal grid. The design must support the "hive mind" concept while maintaining clarity for complex idea networks.
 
 ---
 
@@ -164,7 +164,7 @@ HexMind is a spatial, non-linear brainstorming tool using AI to expand ideas int
 
 ## Selected Approach: Cyber-Hive Dark Mode (Idea 1)
 
-This approach aligns best with the existing HexMind implementation and the "hive" metaphor central to the product. The dark mode creates an immersive environment for creative thinking, while the electric accents provide clear visual hierarchy for different node types. The glassmorphic panels feel modern and premium without being distracting.
+This approach aligns best with the existing HiveMind implementation and the "hive" metaphor central to the product. The dark mode creates an immersive environment for creative thinking, while the electric accents provide clear visual hierarchy for different node types. The glassmorphic panels feel modern and premium without being distracting.
 
 Key implementation notes:
 - Maintain the existing color scheme for node types

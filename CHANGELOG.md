@@ -1,4 +1,4 @@
-# HexMind Changelog
+# HiveMind Changelog
 
 ## Version 2.2 (December 2024)
 

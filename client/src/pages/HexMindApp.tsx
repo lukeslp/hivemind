@@ -1,5 +1,5 @@
 /*
- * HexMind - Spatial Brainstorming Tool
+ * HiveMind - Spatial Brainstorming Tool
  * Design: Cyber-Hive Dark Mode
  * - Deep, immersive dark backgrounds
  * - Hexagonal geometry as foundational visual language
@@ -93,8 +93,8 @@ const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
 const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";  // Gemini
 // Gemini handles both text and image generation via same API key
-const STORAGE_KEY = "hexmind_sessions";
-const AUTOSAVE_KEY = "hexmind_autosave";
+const STORAGE_KEY = "hivemind_sessions";
+const AUTOSAVE_KEY = "hivemind_autosave";
 
 // Cluster color palette for visual distinction
 const CLUSTER_COLORS = [
@@ -400,7 +400,7 @@ const SettingsModal = ({
         <DialogHeader>
           <DialogTitle className="text-foreground">Settings</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Customize your HexMind experience
+            Customize your HiveMind experience
           </DialogDescription>
         </DialogHeader>
         <div className="overflow-y-auto custom-scrollbar flex-1 space-y-6 py-4">
@@ -735,7 +735,7 @@ const FloatingActionBar = ({
   );
 };
 
-export default function HexMindApp() {
+export default function HiveMindApp() {
   // --- State ---
   const [nodes, setNodes] = useState<Record<string, HexNode>>({});
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
@@ -834,21 +834,21 @@ export default function HexMindApp() {
   // Settings modal and preferences
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [fontSizeMultiplier, setFontSizeMultiplier] = useState(() => {
-    const saved = localStorage.getItem('hexmind_font_size');
+    const saved = localStorage.getItem('hivemind_font_size');
     return saved ? parseFloat(saved) : 1.0;
   });
   const [enableAnimations, setEnableAnimations] = useState(() => {
-    const saved = localStorage.getItem('hexmind_animations');
+    const saved = localStorage.getItem('hivemind_animations');
     if (saved) return saved === 'true';
     // Check for prefers-reduced-motion
     return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   });
   const [enableAutoSave, setEnableAutoSave] = useState(() => {
-    const saved = localStorage.getItem('hexmind_autosave');
+    const saved = localStorage.getItem('hivemind_autosave');
     return saved !== 'false'; // Default to true
   });
   const [enableSoundEffects, setEnableSoundEffects] = useState(() => {
-    const saved = localStorage.getItem('hexmind_sound');
+    const saved = localStorage.getItem('hivemind_sound');
     return saved === 'true'; // Default to false
   });
 
@@ -945,19 +945,19 @@ export default function HexMindApp() {
 
   // Persist settings to localStorage
   useEffect(() => {
-    localStorage.setItem('hexmind_font_size', fontSizeMultiplier.toString());
+    localStorage.setItem('hivemind_font_size', fontSizeMultiplier.toString());
   }, [fontSizeMultiplier]);
 
   useEffect(() => {
-    localStorage.setItem('hexmind_animations', enableAnimations.toString());
+    localStorage.setItem('hivemind_animations', enableAnimations.toString());
   }, [enableAnimations]);
 
   useEffect(() => {
-    localStorage.setItem('hexmind_autosave', enableAutoSave.toString());
+    localStorage.setItem('hivemind_autosave', enableAutoSave.toString());
   }, [enableAutoSave]);
 
   useEffect(() => {
-    localStorage.setItem('hexmind_sound', enableSoundEffects.toString());
+    localStorage.setItem('hivemind_sound', enableSoundEffects.toString());
   }, [enableSoundEffects]);
 
   // Apply font size multiplier to document root
@@ -1051,7 +1051,7 @@ export default function HexMindApp() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hexmind_${Date.now()}.json`;
+    a.download = `hivemind_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -2283,7 +2283,7 @@ Example format:
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `hexmind-export-${Date.now()}.svg`;
+    a.download = `hivemind-export-${Date.now()}.svg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2318,7 +2318,7 @@ Example format:
         const pngUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = pngUrl;
-        a.download = `hexmind-export-${Date.now()}.png`;
+        a.download = `hivemind-export-${Date.now()}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2425,7 +2425,7 @@ Example format:
         >
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-            <span className="font-bold hidden sm:inline">HexMind</span>
+            <span className="font-bold hidden sm:inline">HiveMind</span>
           </div>
           <div className="h-6 w-px bg-accent" />
 
@@ -3061,7 +3061,7 @@ Example format:
         <div className="text-center space-y-6">
           {/* Branding */}
           <div>
-            <h1 className="text-fluid-3xl font-bold text-foreground mb-2">HexMind</h1>
+            <h1 className="text-fluid-3xl font-bold text-foreground mb-2">HiveMind</h1>
             <p className="text-fluid-sm text-muted-foreground">AI brainstorming on a hexagonal canvas</p>
           </div>
 

@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-HexMind is a spatial brainstorming tool using AI-powered hexagonal grid expansion. Users click nodes to generate 6 contextual neighbors via Google Gemini API. The app uses React 19 + Vite + Express with a "Cyber-Hive" dark mode aesthetic.
+HiveMind is a spatial brainstorming tool using AI-powered hexagonal grid expansion. Users click nodes to generate 6 contextual neighbors via Google Gemini API. The app uses React 19 + Vite + Express with a "Cyber-Hive" dark mode aesthetic.
 
-**Live URL**: `https://dr.eamer.dev/hexmind/`
+**Live URL**: `https://dr.eamer.dev/hivemind/`
 **Port**: 5057 (production service)
 
 ## Commands
@@ -22,8 +22,8 @@ pnpm check            # TypeScript type check (tsc --noEmit)
 pnpm format           # Prettier formatting
 
 # Service Management (production)
-sm restart hexmind    # Restart the production service
-sm logs hexmind       # View service logs
+sm restart hivemind   # Restart the production service
+sm logs hivemind      # View service logs
 ```
 
 ## Architecture
@@ -31,23 +31,23 @@ sm logs hexmind       # View service logs
 ### Directory Structure
 ```
 client/src/
-├── pages/HexMindApp.tsx    # Main app (2000+ lines, all core logic)
+├── pages/HiveMindApp.tsx   # Main app (2000+ lines, all core logic)
 ├── components/ui/          # shadcn/ui components
 ├── lib/templates.ts        # Build artifact templates
 └── contexts/ThemeContext   # Dark mode provider
 
-server/index.ts             # Express static server (subpath: /hexmind/)
+server/index.ts             # Express static server (subpath: /hivemind/)
 ```
 
 ### Core Patterns
 
-**Single-File Architecture**: Almost all logic lives in `HexMindApp.tsx`:
+**Single-File Architecture**: Almost all logic lives in `HiveMindApp.tsx`:
 - Hexagonal coordinate system (axial q,r coordinates)
 - AI generation via `generateNeighbors()` → Gemini API
 - State: 27+ useState hooks (nodes, viewState, history, modals, etc.)
 - Canvas: SVG hexagons with pan/zoom via transform
 
-**Key Functions** (in HexMindApp.tsx):
+**Key Functions** (in HiveMindApp.tsx):
 - `generateNeighbors(node, forceRefresh?)` - AI expand (lines ~930-1084)
 - `handleDeepDive(node)` - Detailed AI analysis
 - `handleNodeClick(key, node)` - Click behavior
@@ -67,8 +67,8 @@ const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";
 ### Build Configuration
 
 Vite configured for subpath deployment:
-- `base: '/hexmind/'` in vite.config.ts
-- Express mounts static at `/hexmind` path
+- `base: '/hivemind/'` in vite.config.ts
+- Express mounts static at `/hivemind` path
 - wouter Router uses `base={BASE_PATH}` for client routing
 
 ### Path Aliases
@@ -80,7 +80,7 @@ Vite configured for subpath deployment:
 
 ## Known Considerations
 
-- **Large Component**: HexMindApp.tsx is 2000+ lines - consider extracting hooks
+- **Large Component**: HiveMindApp.tsx is 2000+ lines - consider extracting hooks
 - **State Management**: Many useState calls could benefit from useReducer or custom hooks
 - **Viewport Culling**: `visibleNodes` filtering exists but renders all visible nodes
 - **Touch Events**: Conditional handlers based on `isTouchDevice` detection
