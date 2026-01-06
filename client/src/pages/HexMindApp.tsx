@@ -702,7 +702,7 @@ export default function HexMindApp() {
 
   // Auto-save current session
   useEffect(() => {
-    if (Object.keys(nodes).length > 0) {
+    if (Object.keys(nodes).length > 0 && enableAutoSave) {
       try {
         const autosave = {
           nodes,
@@ -715,7 +715,29 @@ export default function HexMindApp() {
         console.error("Autosave failed:", e);
       }
     }
-  }, [nodes, viewState, creativity]);
+  }, [nodes, viewState, creativity, enableAutoSave]);
+
+  // Persist settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('hexmind_font_size', fontSizeMultiplier.toString());
+  }, [fontSizeMultiplier]);
+
+  useEffect(() => {
+    localStorage.setItem('hexmind_animations', enableAnimations.toString());
+  }, [enableAnimations]);
+
+  useEffect(() => {
+    localStorage.setItem('hexmind_autosave', enableAutoSave.toString());
+  }, [enableAutoSave]);
+
+  useEffect(() => {
+    localStorage.setItem('hexmind_sound', enableSoundEffects.toString());
+  }, [enableSoundEffects]);
+
+  // Apply font size multiplier to document root
+  useEffect(() => {
+    document.documentElement.style.setProperty('--font-size-multiplier', fontSizeMultiplier.toString());
+  }, [fontSizeMultiplier]);
 
   // Auto-load is disabled - users must manually load sessions via the folder icon
 
