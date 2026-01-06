@@ -233,6 +233,7 @@ interface HexNode {
   isKeyTheme?: boolean;
   clusterId?: string;       // Identifies which cluster this node belongs to
   isClusterRoot?: boolean;  // True for root nodes of each cluster
+  contextPrompt?: string;   // Question to ask user before expanding (e.g., "What kind of cafe?")
 }
 
 interface ViewState {
@@ -631,6 +632,12 @@ export default function HexMindApp() {
   const [enableSmartExpansion, setEnableSmartExpansion] = useState(true);
   const [autoExpandingNodes, setAutoExpandingNodes] = useState<Set<string>>(new Set());
 
+  // Interactive context prompts
+  const [showContextPrompt, setShowContextPrompt] = useState(false);
+  const [contextPromptNode, setContextPromptNode] = useState<HexNode | null>(null);
+  const [contextPromptQuestion, setContextPromptQuestion] = useState("");
+  const [contextResponse, setContextResponse] = useState("");
+
   // Viewport culling effect
   useEffect(() => {
     const container = containerRef.current;
@@ -951,7 +958,7 @@ export default function HexMindApp() {
   };
 
   // --- AI Functions ---
-  const generateNeighbors = async (centerNode: HexNode, forceRefresh = false) => {
+  const generateNeighbors = async (centerNode: HexNode, forceRefresh = false, additionalContext = "") => {
     const key = getNodeKey(centerNode.q, centerNode.r);
     if (loadingNode) return;
     setLoadingNode(key);
@@ -963,7 +970,7 @@ export default function HexMindApp() {
           ? "Wild, abstract, and out-of-the-box"
           : "Balanced and creative";
     
-    // Improved prompt to ensure exactly 6 branches with smart expansion support
+    // Improved prompt to ensure exactly 6 branches with smart expansion and context prompts
     const systemPrompt = `You are a brainstorming engine for a hexagonal mind map. Style: ${tempDesc}.
 Given a central idea, you MUST generate EXACTLY 6 distinct related nodes to fill all hexagonal neighbors.
 Each node should explore a different angle or aspect of the central idea.
@@ -977,11 +984,13 @@ IMPORTANT:
   3: Moderate complexity (could benefit from expansion)
   4-5: Rich, multi-faceted concept that SHOULD be expanded further
 - Mark branches with complexity 4-5 as "autoExpand": true (max 2 per generation)
+- If a branch is too broad/vague to expand without user input, add "contextPrompt": "What specific aspect?" (e.g., "city research" for a cafe → "What kind of cafe are you researching?")
 
-Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false }, ... ] }`;
+Return JSON: { "branches": [{ "title": "Short Title (2-4 words)", "description": "Brief explanation (1-2 sentences)", "type": "concept|action|technical|question|risk", "complexity": 3, "autoExpand": false, "contextPrompt": null }, ... ] }`;
 
     const userQuery = `Central idea: "${centerNode.text}"
 Context: ${centerNode.description || "No additional context"}
+${additionalContext ? `Additional user input: ${additionalContext}` : ""}
 Generate 6 diverse related ideas exploring different aspects.`;
 
     try {
@@ -1105,6 +1114,7 @@ Generate 6 diverse related ideas exploring different aspects.`;
             parentId: key,
             pinned: false,
             clusterId: centerNode.clusterId, // Inherit cluster from parent
+            contextPrompt: branches[i].contextPrompt || undefined, // Store if LLM requests more info
           };
 
           newNodes[neighborKey] = newNode;
@@ -1505,6 +1515,8 @@ Be comprehensive but focused on the user's specific request.`;
       depth: 0,
       pinned: true,
       type: "root",
+      clusterId: "main", // Set initial cluster
+      isClusterRoot: true,
     };
     commitNodes({ "0,0": firstNode });
     setRootInput("");
@@ -1721,6 +1733,15 @@ Example format:
       const neighborKey = getNodeKey(node.q + dir.q, node.r + dir.r);
       return nodes[neighborKey] === undefined;
     });
+
+    // If node has contextPrompt, show modal instead of generating
+    if (hasEmptyNeighbors && node.contextPrompt && loadingNode !== key) {
+      setContextPromptNode(node);
+      setContextPromptQuestion(node.contextPrompt);
+      setContextResponse("");
+      setShowContextPrompt(true);
+      return;
+    }
 
     // Generate if there are empty slots and not already loading
     if (hasEmptyNeighbors && loadingNode !== key) {
@@ -3264,6 +3285,66 @@ Example format:
                 setShowNewClusterModal(false);
                 setNewClusterInput("");
                 setNewClusterCoords(null);
+              }}
+              variant="outline"
+              className="border-white/10 text-neutral-400"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Context Prompt Modal */}
+      <Modal
+        isOpen={showContextPrompt}
+        onClose={() => {
+          setShowContextPrompt(false);
+          setContextPromptNode(null);
+          setContextResponse("");
+        }}
+        title="Provide Context"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-400">
+            {contextPromptQuestion}
+          </p>
+          <Input
+            value={contextResponse}
+            onChange={(e) => setContextResponse(e.target.value)}
+            placeholder="Your answer..."
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && contextResponse.trim() && contextPromptNode) {
+                setShowContextPrompt(false);
+                generateNeighbors(contextPromptNode, false, contextResponse);
+                setContextPromptNode(null);
+                setContextResponse("");
+              }
+            }}
+          />
+          <div className="flex gap-3">
+            <Button
+              onClick={() => {
+                if (contextPromptNode) {
+                  setShowContextPrompt(false);
+                  generateNeighbors(contextPromptNode, false, contextResponse);
+                  setContextPromptNode(null);
+                  setContextResponse("");
+                }
+              }}
+              disabled={!contextResponse.trim()}
+              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate
+            </Button>
+            <Button
+              onClick={() => {
+                setShowContextPrompt(false);
+                setContextPromptNode(null);
+                setContextResponse("");
               }}
               variant="outline"
               className="border-white/10 text-neutral-400"
