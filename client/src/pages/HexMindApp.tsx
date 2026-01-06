@@ -3002,7 +3002,6 @@ Example format:
                       </div>
                       <div>
                         <p className="text-sm font-bold text-foreground">{node.type.toUpperCase()}</p>
-                        <p className="text-xs text-muted-foreground">Depth: {node.depth}</p>
                       </div>
                     </>
                   );
@@ -3050,25 +3049,6 @@ Example format:
                   </p>
                 </div>
               )}
-
-              {/* Node Stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-accent/50 border border-border rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground mb-2 font-semibold">Coordinates</p>
-                  <p className="text-lg font-mono text-foreground font-bold">
-                    q: {nodes[inspectedNodeId].q}, r: {nodes[inspectedNodeId].r}
-                  </p>
-                </div>
-                <div className="bg-accent/50 border border-border rounded-xl p-4">
-                  <p className="text-xs text-muted-foreground mb-2 font-semibold">Neighbors</p>
-                  <p className="text-lg font-mono text-foreground font-bold">
-                    {DIRECTIONS.filter(dir => {
-                      const nKey = getNodeKey(nodes[inspectedNodeId].q + dir.q, nodes[inspectedNodeId].r + dir.r);
-                      return nodes[nKey] !== undefined;
-                    }).length} / 6
-                  </p>
-                </div>
-              </div>
 
               {/* Panel Actions - Organized into clear groups */}
               <div className="flex flex-col gap-4 pt-4 border-t border-border">
