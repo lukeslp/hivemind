@@ -2121,6 +2121,9 @@ Example format:
     setSelectedNodeId(key);
     setInspectedNodeId(key);
 
+    // Announce selection to screen readers
+    announcer.announceNodeSelected(node.text);
+
     // Check if ANY neighbors are empty (slots to fill)
     const hasEmptyNeighbors = DIRECTIONS.some(dir => {
       const neighborKey = getNodeKey(node.q + dir.q, node.r + dir.r);
@@ -2143,6 +2146,21 @@ Example format:
         duration: 2000,
       });
       generateNeighbors(node);
+    }
+  };
+
+  // Keyboard navigation handler for hexagon nodes
+  const handleNodeKeyDown = (e: React.KeyboardEvent, key: string, node: HexNode) => {
+    // Enter or Space activates the node
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (navigator.vibrate) navigator.vibrate(10);
+      handleNodeClick(key, node);
+    }
+    // Shift+Enter for deep dive
+    else if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      handleDeepDive(node);
     }
   };
 
@@ -2444,6 +2462,7 @@ Example format:
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setBuildModalOpen(true)}
+                aria-label="Build from template or AI"
                 className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-foreground rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
               >
                 <FileText className="w-3 h-3" /> Build
@@ -2452,6 +2471,7 @@ Example format:
               <div className="flex items-center gap-1">
                 <button
                   onClick={exportAsPNG}
+                  aria-label="Export mind map as PNG image"
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg"
                   title="Export PNG"
                 >
@@ -2459,6 +2479,7 @@ Example format:
                 </button>
                 <button
                   onClick={exportAsImage}
+                  aria-label="Export mind map as SVG image"
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg text-xs"
                   title="Export SVG"
                 >
@@ -2471,6 +2492,7 @@ Example format:
                 <button
                   onClick={handleUndo}
                   disabled={historyIndex === 0}
+                  aria-label={`Undo last action. Keyboard shortcut: Ctrl Z${historyIndex === 0 ? ' (unavailable)' : ''}`}
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-30"
                 >
                   <Undo2 className="w-4 h-4" />
@@ -2478,6 +2500,7 @@ Example format:
                 <button
                   onClick={handleRedo}
                   disabled={historyIndex === history.length - 1}
+                  aria-label={`Redo last action. Keyboard shortcut: Ctrl Shift Z${historyIndex === history.length - 1 ? ' (unavailable)' : ''}`}
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-30"
                 >
                   <Redo2 className="w-4 h-4" />
@@ -2490,6 +2513,8 @@ Example format:
                   setIsSearchOpen(!isSearchOpen);
                   setTimeout(() => searchInputRef.current?.focus(), 50);
                 }}
+                aria-label={`${isSearchOpen ? 'Close' : 'Open'} search panel. Keyboard shortcut: Ctrl F`}
+                aria-pressed={isSearchOpen}
                 className={`p-2.5 rounded-lg transition-colors ${isSearchOpen ? "bg-accent text-accent-foreground" : "hover:bg-accent text-muted-foreground"}`}
               >
                 <Search className="w-4 h-4" />
@@ -2750,6 +2775,12 @@ Example format:
                   }}
                 >
                       <div
+                        // Accessibility attributes
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`${node.text}, ${node.type} node, level ${node.depth}${node.pinned ? ', pinned' : ''}${node.isKeyTheme ? ', key theme' : ''}`}
+                        onKeyDown={(e) => handleNodeKeyDown(e, key, node)}
+                        // Drag and drop
                         draggable={!node.pinned && node.type !== 'root'}
                         onDragStart={(e) => {
                           if (node.pinned || node.type === 'root') {
@@ -2779,6 +2810,7 @@ Example format:
                             mergeNodes(draggedNodeId, key);
                           }
                         }}
+                        // Mouse interactions
                         onClick={(e) => {
                           e.stopPropagation();
                           if (navigator.vibrate) navigator.vibrate(10);
@@ -2788,6 +2820,7 @@ Example format:
                           e.stopPropagation();
                           handleDeepDive(node);
                         }}
+                        // Touch interactions
                         onTouchStart={(e) => {
                           e.stopPropagation();
                           longPressTimer.current = setTimeout(() => {
@@ -2809,7 +2842,7 @@ Example format:
                           }
                         }}
                         className={`
-                          relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
+                          hex-node relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
                           transition-transform duration-200
                           ${isSelected ? "scale-110" : isHovered ? "scale-105" : ""}
                           ${isLoading || isAutoExpanding ? "animate-pulse" : ""}
