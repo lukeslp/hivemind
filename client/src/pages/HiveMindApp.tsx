@@ -88,6 +88,7 @@ import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNodeLabel, useToolbarLabel, useModalLabel } from "@/hooks/useAccessibilityLabels";
 import { useHiveMindAnnouncer } from "@/hooks/useAnnouncer";
+import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 
 // --- Constants & Config ---
 const HEX_SIZE = 80;
@@ -971,6 +972,30 @@ export default function HiveMindApp() {
   useEffect(() => {
     document.documentElement.style.setProperty('--font-size-multiplier', fontSizeMultiplier.toString());
   }, [fontSizeMultiplier]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // ? key - show keyboard shortcuts help
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Only if not typing in an input
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
+          e.preventDefault();
+          setShowKeyboardShortcuts(true);
+        }
+      }
+      // Ctrl/Cmd + F - open search
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // Auto-load is disabled - users must manually load sessions via the folder icon
 
@@ -3900,6 +3925,12 @@ Example format:
       >
         {loadingNodes.size > 0 && `Generating ideas for ${Array.from(loadingNodes).map(k => nodes[k]?.text).filter(Boolean).join(', ')}`}
       </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
+      />
     </div>
   );
 }
