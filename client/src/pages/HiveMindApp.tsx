@@ -1122,16 +1122,18 @@ export default function HiveMindApp() {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       setNodes(history[newIndex]);
+      announcer.announceUndo();
     }
-  }, [history, historyIndex]);
+  }, [history, historyIndex, announcer]);
 
   const handleRedo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       setNodes(history[newIndex]);
+      announcer.announceRedo();
     }
-  }, [history, historyIndex]);
+  }, [history, historyIndex, announcer]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2042,6 +2044,9 @@ Example format:
     setViewState({ x: 0, y: 0, zoom: 1 });
     setSelectedNodeId("0,0");
     setShowTemplates(false);
+
+    // Announce to screen readers
+    announcer.announceTemplateLoaded(template.title);
   };
 
   // Create a new cluster at the clicked location
@@ -3151,6 +3156,35 @@ Example format:
           >
             Or start from a template →
           </button>
+
+          {/* Quick Tips - Accessibility Focused */}
+          <div className="pt-4 border-t border-border space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+              Quick Tips
+            </h3>
+            <div className="space-y-2 text-left text-xs text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <span className="text-primary">•</span>
+                <span><strong>Click</strong> any hexagon to select and generate neighbors</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-primary">•</span>
+                <span><strong>Tab</strong> to navigate hexagons with keyboard</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-primary">•</span>
+                <span><strong>Ctrl/Cmd + F</strong> to search your mind map</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-primary">•</span>
+                <span>Press <strong>?</strong> anytime for keyboard shortcuts</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-primary">•</span>
+                <span>Use <strong>Settings</strong> for accessibility options</span>
+              </div>
+            </div>
+          </div>
 
         </div>
       </Modal>
