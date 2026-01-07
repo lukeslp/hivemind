@@ -53,5 +53,5 @@ export {
   Type,
   Volume2,
   VolumeX,
-  Image as ImageIcon
+  Image
 } from 'lucide-react';

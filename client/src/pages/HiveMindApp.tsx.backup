@@ -64,7 +64,7 @@ import {
   Type,
   Volume2,
   VolumeX,
-} from "@/lib/icons";
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
