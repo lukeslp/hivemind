@@ -91,8 +91,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 const HEX_SIZE = 80;
 const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
-const API_KEY = "AIzaSyDK7CD5KMlhrjjJ75_Z8fdRde0ER2FnSpA";  // Gemini
-// Gemini handles both text and image generation via same API key
+// API key is now secured in backend - removed from client
 const GEMINI_TEXT_MODEL = "gemini-3-flash-preview";  // Text generation & analysis
 const GEMINI_IMAGE_MODEL = "gemini-2.0-flash-exp";   // Image generation (Nano Banana)
 const STORAGE_KEY = "hivemind_sessions";
@@ -1326,21 +1325,19 @@ ${nearbyNodesContext}
 Generate 6 diverse related ideas. If any connect to existing nodes, suggest those connections.`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: userQuery }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: { 
-              responseMimeType: "application/json",
-              temperature: 0.7 + (creativity * 0.6), // 0.7-1.3 based on creativity
-            },
-          }),
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: GEMINI_TEXT_MODEL,
+          contents: [{ parts: [{ text: userQuery }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.7 + (creativity * 0.6), // 0.7-1.3 based on creativity
+          },
+        }),
+      });
 
       const result = await response.json();
       console.log("=== API Response ===", result);
@@ -1588,21 +1585,19 @@ Node type: ${node.type}
 Regenerate with a fresh perspective.`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: userQuery }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            generationConfig: {
-              responseMimeType: "application/json",
-              temperature: 0.8 + (creativity * 0.5),
-            },
-          }),
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: GEMINI_TEXT_MODEL,
+          contents: [{ parts: [{ text: userQuery }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.8 + (creativity * 0.5),
+          },
+        }),
+      });
 
       const result = await response.json();
       if (!response.ok || result.error) {
@@ -1644,19 +1639,17 @@ Regenerate with a fresh perspective.`;
     const prompt = `Create a visually compelling illustration for: ${node.text}${node.description ? `. Context: ${node.description}` : ''}`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseModalities: ["image", "text"],
-            }
-          })
-        }
-      );
+      const response = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: GEMINI_IMAGE_MODEL,
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ["image", "text"],
+          },
+        }),
+      });
 
       const result = await response.json();
       if (!response.ok || result.error) {
@@ -1733,14 +1726,14 @@ Bullet-point summary of the most important takeaways.
 Write in a professional but accessible tone. Be thorough and substantive - this should be a useful reference document.`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: GEMINI_TEXT_MODEL,
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      });
       const result = await response.json();
       setDeepDiveContent(
         result.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated."
@@ -1775,14 +1768,14 @@ Use proper headings, lists, and formatting.
 Be comprehensive but focused on the user's specific request.`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: GEMINI_TEXT_MODEL,
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      });
       const result = await response.json();
       setBuildResult(
         result.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to generate artifact."
@@ -1953,17 +1946,15 @@ Example format:
 [{"q":0,"r":0,"text":"Dog Walker App","description":"Mobile platform connecting busy professionals with reliable dog walkers","type":"concept"},...]`;
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
-          }),
-        }
-      );
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: GEMINI_TEXT_MODEL,
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" },
+        }),
+      });
 
       const result = await response.json();
       const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
