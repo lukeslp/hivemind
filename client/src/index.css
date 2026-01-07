@@ -132,6 +132,42 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+
+  /* ========================================
+     WCAG 2.1 AA FOCUS INDICATORS
+     Ensure 3:1 contrast ratio for visibility
+     ======================================== */
+
+  /* Global focus-visible styles */
+  *:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    transition: outline-offset 0.15s ease;
+  }
+
+  /* Enhanced focus for interactive elements */
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Hexagon node focus indicator - uses filter for SVG compatibility */
+  .hex-node:focus-visible {
+    filter: drop-shadow(0 0 0 3px var(--ring))
+            drop-shadow(0 0 8px var(--ring));
+    outline: none; /* Prevent double outline */
+  }
+
+  /* Dialog/Modal focus trap indicator */
+  [role="dialog"]:focus-visible,
+  [role="alertdialog"]:focus-visible {
+    outline: none; /* Radix handles focus trap */
+  }
 }
 
 @layer components {
@@ -312,5 +348,78 @@
   * {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* ========================================
+   WCAG 2.1 AA HIGH CONTRAST MODE
+   Enhanced visibility for users who need it
+   ======================================== */
+@media (prefers-contrast: more) {
+  :root {
+    /* Increase border visibility */
+    --border: oklch(0.20 0.01 0);
+    --input: oklch(0.20 0.01 0);
+  }
+
+  .dark {
+    /* Stronger borders in dark mode */
+    --border: oklch(1 0 0 / 80%);
+    --input: oklch(1 0 0 / 80%);
+  }
+
+  /* Stronger focus indicators (4px instead of 3px) */
+  *:focus-visible {
+    outline-width: 4px;
+    outline-offset: 3px;
+  }
+
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline-width: 4px;
+    outline-offset: 3px;
+  }
+
+  .hex-node:focus-visible {
+    filter: drop-shadow(0 0 0 4px var(--ring))
+            drop-shadow(0 0 12px var(--ring));
+  }
+
+  /* Increase text contrast */
+  body {
+    color: oklch(0.95 0.005 0);
+  }
+
+  .dark body {
+    color: oklch(0.98 0.005 0);
+  }
+
+  /* Ensure all text meets 7:1 contrast ratio (Level AAA) */
+  .text-muted-foreground {
+    color: oklch(0.75 0.01 0);
+  }
+
+  .dark .text-muted-foreground {
+    color: oklch(0.80 0.01 0);
+  }
+
+  /* Stronger shadows for depth perception */
+  .hex-shadow-default {
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.25))
+            drop-shadow(0 3px 6px rgba(0, 0, 0, 0.15));
+  }
+
+  .hex-shadow-hover {
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.30))
+            drop-shadow(0 6px 8px rgba(0, 0, 0, 0.20));
+  }
+
+  .hex-shadow-selected {
+    filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.40))
+            drop-shadow(0 12px 15px rgba(0, 0, 0, 0.25));
   }
 }

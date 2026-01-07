@@ -86,6 +86,8 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useNodeLabel, useToolbarLabel, useModalLabel } from "@/hooks/useAccessibilityLabels";
+import { useHiveMindAnnouncer } from "@/hooks/useAnnouncer";
 
 // --- Constants & Config ---
 const HEX_SIZE = 80;
@@ -807,6 +809,7 @@ export default function HiveMindApp() {
   const [sessionName, setSessionName] = useState("");
 
   // Keyboard shortcuts modal
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
 
   // Filter state
   const [filterType, setFilterType] = useState<string | null>(null);
@@ -855,6 +858,9 @@ export default function HiveMindApp() {
 
   // Theme from context
   const { theme, toggleTheme } = useTheme();
+
+  // Accessibility announcer
+  const announcer = useHiveMindAnnouncer();
 
   // Interactive context prompts
   const [showContextPrompt, setShowContextPrompt] = useState(false);
