@@ -671,6 +671,7 @@ const FloatingActionBar = ({
   position,
   onRefresh,
   onDeepDive,
+  onToggleKeyTheme,
   isLoading,
   onMouseEnter,
   onMouseLeave,
@@ -679,6 +680,7 @@ const FloatingActionBar = ({
   position: { x: number; y: number };
   onRefresh: () => void;
   onDeepDive: () => void;
+  onToggleKeyTheme: () => void;
   isLoading: boolean;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -728,6 +730,24 @@ const FloatingActionBar = ({
             </button>
           </TooltipTrigger>
           <TooltipContent>Deep Dive</TooltipContent>
+        </Tooltip>
+
+        {/* Mark as Key Theme - Prioritize this concept */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onToggleKeyTheme}
+              aria-label={node.isKeyTheme ? "Remove Key Theme" : "Mark as Key Theme"}
+              className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${
+                node.isKeyTheme
+                  ? "bg-yellow-400/20 text-yellow-300"
+                  : "hover:bg-yellow-400/10 text-yellow-500"
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{node.isKeyTheme ? "Unmark" : "Mark Key Theme"}</TooltipContent>
         </Tooltip>
       </div>
     </div>
@@ -923,6 +943,28 @@ export default function HiveMindApp() {
     loadFromUrl();
   }, []);
 
+  // Load key themes from localStorage on mount
+  useEffect(() => {
+    try {
+      const keyThemesJson = localStorage.getItem('hivemind_key_themes');
+      if (keyThemesJson) {
+        const keyThemeKeys: string[] = JSON.parse(keyThemesJson);
+
+        setNodes(prevNodes => {
+          const updated = { ...prevNodes };
+          keyThemeKeys.forEach(key => {
+            if (updated[key]) {
+              updated[key] = { ...updated[key], isKeyTheme: true, hierarchyLevel: 1 };
+            }
+          });
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load key themes:", error);
+    }
+  }, []);
+
   // Auto-save current session
   useEffect(() => {
     if (Object.keys(nodes).length > 0 && enableAutoSave) {
@@ -1001,6 +1043,7 @@ export default function HiveMindApp() {
       nodes,
       viewState,
       creativity,
+      keyThemes: Object.keys(nodes).filter(k => nodes[k].isKeyTheme),
     };
     try {
       localStorage.setItem(sessionId, JSON.stringify(sessionData));
@@ -3007,13 +3050,35 @@ Example format:
           </div>
         </div>
 
-        {/* Floating Action Bar - 2 Essential Actions: Refresh, Deep Dive */}
+        {/* Floating Action Bar - 3 Essential Actions: Refresh, Deep Dive, Mark Key Theme */}
         {hoveredNode && hoveredNodeId && !editingNodeId && (
           <FloatingActionBar
             node={hoveredNode}
             position={getNodeScreenPosition(hoveredNode)}
             onRefresh={() => refreshSingleNode(hoveredNode)}
             onDeepDive={() => handleDeepDive(hoveredNode)}
+            onToggleKeyTheme={() => {
+              const key = getNodeKey(hoveredNode.q, hoveredNode.r);
+              const isNowKeyTheme = !hoveredNode.isKeyTheme;
+
+              // Update node state with new key theme status
+              commitNodes({
+                ...nodes,
+                [key]: {
+                  ...hoveredNode,
+                  isKeyTheme: isNowKeyTheme,
+                  hierarchyLevel: isNowKeyTheme ? 1 : undefined,
+                },
+              });
+
+              // Save key themes to localStorage for persistence
+              const keyThemes = Object.keys(nodes)
+                .filter(k => k === key ? isNowKeyTheme : nodes[k].isKeyTheme);
+              localStorage.setItem('hivemind_key_themes', JSON.stringify(keyThemes));
+
+              // User feedback
+              toast.success(isNowKeyTheme ? "Marked as key theme" : "Unmarked");
+            }}
             isLoading={loadingNodes.has(hoveredNodeId)}
             onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
             onMouseLeave={() => setHoveredNodeId(null)}
