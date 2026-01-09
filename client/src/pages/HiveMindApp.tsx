@@ -738,7 +738,6 @@ export default function HiveMindApp() {
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
   const [creativity, setCreativity] = useState(0.5);
-  const [visibleNodes, setVisibleNodes] = useState<Record<string, HexNode>>({});
 
   // Undo/Redo
   const [history, setHistory] = useState<Record<string, HexNode>[]>([{}]);
@@ -875,35 +874,31 @@ export default function HiveMindApp() {
   // Hover delay for FloatingActionBar
   const hoverDelayTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Viewport culling effect
-  useEffect(() => {
+  // Viewport culling (useMemo for performance - no double renders)
+  const visibleNodes = useMemo(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) return {};
 
-    const updateVisibleNodes = () => {
-      const newVisibleNodes: Record<string, HexNode> = {};
-      const { width, height } = container.getBoundingClientRect();
-      const padding = HEX_WIDTH * 2;
+    const newVisibleNodes: Record<string, HexNode> = {};
+    const { width, height} = container.getBoundingClientRect();
+    const padding = HEX_WIDTH * 2;
 
-      for (const key in nodes) {
-        const node = nodes[key];
-        const { x, y } = hexToPixel(node.q, node.r);
-        const screenX = width / 2 + viewState.x + x * viewState.zoom;
-        const screenY = height / 2 + viewState.y + y * viewState.zoom;
+    for (const key in nodes) {
+      const node = nodes[key];
+      const { x, y } = hexToPixel(node.q, node.r);
+      const screenX = width / 2 + viewState.x + x * viewState.zoom;
+      const screenY = height / 2 + viewState.y + y * viewState.zoom;
 
-        if (
-          screenX > -padding &&
-          screenX < width + padding &&
-          screenY > -padding &&
-          screenY < height + padding
-        ) {
-          newVisibleNodes[key] = node;
-        }
+      if (
+        screenX > -padding &&
+        screenX < width + padding &&
+        screenY > -padding &&
+        screenY < height + padding
+      ) {
+        newVisibleNodes[key] = node;
       }
-      setVisibleNodes(newVisibleNodes);
-    };
-
-    updateVisibleNodes();
+    }
+    return newVisibleNodes;
   }, [nodes, viewState]);
 
   // Update ref when nodes change
@@ -2665,7 +2660,10 @@ Example format:
         onMouseDown={!isTouchDevice ? handleMouseDown : undefined}
         onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
         onMouseUp={!isTouchDevice ? () => setIsDragging(false) : undefined}
-        onMouseLeave={!isTouchDevice ? () => setIsDragging(false) : undefined}
+        onMouseLeave={!isTouchDevice ? () => {
+          setIsDragging(false);
+          setHoveredNodeId(null);
+        } : undefined}
         onClick={!isTouchDevice ? handleCanvasClick : undefined}
         onTouchStart={isTouchDevice ? handleTouchStart : undefined}
         onTouchMove={isTouchDevice ? handleTouchMove : undefined}
