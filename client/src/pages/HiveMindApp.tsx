@@ -9,7 +9,7 @@
  * - Direct manipulation paradigm
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import {
   Plus,
   Loader2,
@@ -89,6 +89,19 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useNodeLabel, useToolbarLabel, useModalLabel } from "@/hooks/useAccessibilityLabels";
 import { useHiveMindAnnouncer } from "@/hooks/useAnnouncer";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
+import { buildApiUrl } from "@/lib/api";
+
+// Lazy-loaded modal components for better performance
+const BuildArtifactModal = lazy(() => import("@/components/BuildArtifactModal"));
+const DeepDiveModal = lazy(() => import("@/components/DeepDiveModal"));
+const SessionManagerModal = lazy(() => import("@/components/SessionManagerModal"));
+
+// Loading fallback for lazy-loaded modals
+const ModalSkeleton = () => (
+  <div className="flex items-center justify-center p-8">
+    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+  </div>
+);
 
 // --- Constants & Config ---
 const HEX_SIZE = 80;
@@ -1358,7 +1371,7 @@ ${nearbyNodesContext}
 Generate 6 diverse related ideas. If any connect to existing nodes, suggest those connections.`;
 
     try {
-      const response = await fetch("/api/generate", {
+      const response = await fetch(buildApiUrl("generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1618,7 +1631,7 @@ Node type: ${node.type}
 Regenerate with a fresh perspective.`;
 
     try {
-      const response = await fetch("/api/generate", {
+      const response = await fetch(buildApiUrl("generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1672,7 +1685,7 @@ Regenerate with a fresh perspective.`;
     const prompt = `Create a visually compelling illustration for: ${node.text}${node.description ? `. Context: ${node.description}` : ''}`;
 
     try {
-      const response = await fetch("/api/generate-image", {
+      const response = await fetch(buildApiUrl("generate-image"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1759,7 +1772,7 @@ Bullet-point summary of the most important takeaways.
 Write in a professional but accessible tone. Be thorough and substantive - this should be a useful reference document.`;
 
     try {
-      const response = await fetch("/api/generate", {
+      const response = await fetch(buildApiUrl("generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1801,7 +1814,7 @@ Use proper headings, lists, and formatting.
 Be comprehensive but focused on the user's specific request.`;
 
     try {
-      const response = await fetch("/api/generate", {
+      const response = await fetch(buildApiUrl("generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1979,7 +1992,7 @@ Example format:
 [{"q":0,"r":0,"text":"Dog Walker App","description":"Mobile platform connecting busy professionals with reliable dog walkers","type":"concept"},...]`;
 
     try {
-      const response = await fetch("/api/generate", {
+      const response = await fetch(buildApiUrl("generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2046,7 +2059,7 @@ Example format:
     setShowTemplates(false);
 
     // Announce to screen readers
-    announcer.announceTemplateLoaded(template.title);
+    announcer.announceTemplateLoaded(template.name);
   };
 
   // Create a new cluster at the clicked location
@@ -3369,193 +3382,136 @@ Example format:
       )}
 
       {/* Modals */}
-      <Modal
-        isOpen={!!deepDiveContent || isDeepDiveLoading}
-        onClose={() => setDeepDiveContent(null)}
-        title={`Deep Dive: ${deepDiveTitle}`}
-        maxWidth="max-w-5xl"
-      >
-        {isDeepDiveLoading ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mb-4" />
-            <p className="text-muted-foreground">Analyzing...</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Export Actions */}
-            <div className="flex justify-end gap-2 pb-4 border-b border-border">
-              <Button
-                onClick={() => {
-                  const blob = new Blob([`# ${deepDiveTitle}\n\n${deepDiveContent}`], { type: 'text/markdown' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${deepDiveTitle.replace(/[^a-z0-9]/gi, '_')}_deep_dive.md`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                variant="outline"
-                size="sm"
-                className="border-border text-neutral-300"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download .md
-              </Button>
-              <Button
-                onClick={() => {
-                  const printWindow = window.open('', '_blank');
-                  if (printWindow) {
-                    printWindow.document.write(`
-                      <!DOCTYPE html>
-                      <html>
-                      <head>
-                        <title>${deepDiveTitle} - Deep Dive</title>
-                        <style>
-                          body { font-family: Georgia, serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #333; }
-                          h1 { font-size: 2em; margin-bottom: 0.5em; border-bottom: 2px solid #333; padding-bottom: 0.3em; }
-                          h2 { font-size: 1.5em; margin-top: 1.5em; color: #444; }
-                          h3 { font-size: 1.2em; margin-top: 1.2em; color: #555; }
-                          p { margin-bottom: 1em; }
-                          ul, ol { margin-left: 1.5em; margin-bottom: 1em; }
-                          li { margin-bottom: 0.5em; }
-                          code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-                          strong { font-weight: bold; }
-                          em { font-style: italic; }
-                          @media print { body { margin: 0; padding: 20px; } }
-                        </style>
-                      </head>
-                      <body>
-                        <h1>${deepDiveTitle}</h1>
-                        ${(deepDiveContent || '').replace(/^# .+\n/m, '').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^\* (.+)$/gm, '<li>$1</li>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/\n\n/g, '</p><p>').replace(/^(?!<[hlo])/gm, '<p>').replace(/<p><\/p>/g, '')}
-                      </body>
-                      </html>
-                    `);
-                    printWindow.document.close();
-                    printWindow.print();
-                  }
-                }}
-                size="sm"
-                className="bg-indigo-600 hover:bg-indigo-700"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Print / Save PDF
-              </Button>
-            </div>
+      {(!!deepDiveContent || isDeepDiveLoading) && (
+        <Modal
+          isOpen={!!deepDiveContent || isDeepDiveLoading}
+          onClose={() => setDeepDiveContent(null)}
+          title={`Deep Dive: ${deepDiveTitle}`}
+          maxWidth="max-w-5xl"
+        >
+          <Suspense fallback={<ModalSkeleton />}>
+            {isDeepDiveLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mb-4" />
+                <p className="text-muted-foreground">Analyzing...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Export Actions */}
+                <div className="flex justify-end gap-2 pb-4 border-b border-border">
+                  <Button
+                    onClick={() => {
+                      const blob = new Blob([`# ${deepDiveTitle}\n\n${deepDiveContent}`], { type: 'text/markdown' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${deepDiveTitle.replace(/[^a-z0-9]/gi, '_')}_deep_dive.md`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="border-border text-neutral-300"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download .md
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <!DOCTYPE html>
+                          <html>
+                          <head>
+                            <title>${deepDiveTitle} - Deep Dive</title>
+                            <style>
+                              body { font-family: Georgia, serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #333; }
+                              h1 { font-size: 2em; margin-bottom: 0.5em; border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+                              h2 { font-size: 1.5em; margin-top: 1.5em; color: #444; }
+                              h3 { font-size: 1.2em; margin-top: 1.2em; color: #555; }
+                              p { margin-bottom: 1em; }
+                              ul, ol { margin-left: 1.5em; margin-bottom: 1em; }
+                              li { margin-bottom: 0.5em; }
+                              code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+                              strong { font-weight: bold; }
+                              em { font-style: italic; }
+                              @media print { body { margin: 0; padding: 20px; } }
+                            </style>
+                          </head>
+                          <body>
+                            <h1>${deepDiveTitle}</h1>
+                            ${(deepDiveContent || '').replace(/^# .+\n/m, '').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^\* (.+)$/gm, '<li>$1</li>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/\n\n/g, '</p><p>').replace(/^(?!<[hlo])/gm, '<p>').replace(/<p><\/p>/g, '')}
+                          </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.print();
+                      }
+                    }}
+                    size="sm"
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Print / Save PDF
+                  </Button>
+                </div>
 
-            {/* Content */}
-            <div className="prose prose-invert prose-lg max-w-none">
-              <ReactMarkdown
-                components={{
-                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-foreground" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-card-foreground" {...props} />,
-                  p: ({node, ...props}) => <p className="text-base leading-relaxed mb-4 text-neutral-300" {...props} />,
-                  ul: ({node, ...props}) => <ul className="space-y-2 mb-6 ml-6" {...props} />,
-                  ol: ({node, ...props}) => <ol className="space-y-2 mb-6 ml-6" {...props} />,
-                  li: ({node, ...props}) => <li className="text-base leading-relaxed text-neutral-300" {...props} />,
-                  strong: ({node, ...props}) => <strong className="font-bold text-foreground" {...props} />,
-                  em: ({node, ...props}) => <em className="italic text-card-foreground" {...props} />,
-                  code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-secondary text-amber-400 text-sm" {...props} />,
-                }}
-              >
-                {deepDiveContent || ""}
-              </ReactMarkdown>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        isOpen={buildModalOpen}
-        onClose={() => {
-          setBuildModalOpen(false);
-          setBuildResult("");
-          setBuildPrompt("");
-        }}
-        title="Build Artifact"
-        maxWidth="max-w-4xl"
-      >
-        <div className="flex flex-col h-[60vh]">
-          {!buildResult && !isBuilding && (
-            <div className="flex flex-col gap-6">
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
-                  Quick Templates
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {BUILD_TEMPLATES.map((t, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setBuildPrompt(t.prompt)}
-                      className="px-3 py-1.5 rounded-full bg-accent/50 border border-border text-xs text-neutral-300 hover:bg-indigo-500/20 hover:border-indigo-500/50 hover:text-foreground transition-all"
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                {/* Content */}
+                <div className="prose prose-invert prose-lg max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({node, ...props}) => <h1 className="text-3xl font-bold mb-6 text-foreground" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-6 mb-3 text-card-foreground" {...props} />,
+                      p: ({node, ...props}) => <p className="text-base leading-relaxed mb-4 text-neutral-300" {...props} />,
+                      ul: ({node, ...props}) => <ul className="space-y-2 mb-6 ml-6" {...props} />,
+                      ol: ({node, ...props}) => <ol className="space-y-2 mb-6 ml-6" {...props} />,
+                      li: ({node, ...props}) => <li className="text-base leading-relaxed text-neutral-300" {...props} />,
+                      strong: ({node, ...props}) => <strong className="font-bold text-foreground" {...props} />,
+                      em: ({node, ...props}) => <em className="italic text-card-foreground" {...props} />,
+                      code: ({node, ...props}) => <code className="px-2 py-1 rounded bg-secondary text-amber-400 text-sm" {...props} />,
+                    }}
+                  >
+                    {deepDiveContent || ""}
+                  </ReactMarkdown>
                 </div>
               </div>
+            )}
+          </Suspense>
+        </Modal>
+      )}
 
-              <div className="flex-1 flex flex-col gap-2">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Custom Prompt
-                </label>
-                <textarea
-                  value={buildPrompt}
-                  onChange={(e) => setBuildPrompt(e.target.value)}
-                  placeholder="Describe exactly what you need..."
-                  className="w-full flex-1 bg-secondary border border-border rounded-xl p-4 text-foreground focus:border-indigo-500 outline-none resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleAgentBuild}
-                  disabled={!buildPrompt}
-                  className="bg-indigo-600 hover:bg-indigo-500"
-                >
-                  <Zap className="w-4 h-4 mr-2" /> Generate
-                </Button>
-              </div>
-            </div>
-          )}
-          {isBuilding && (
-            <div className="flex-1 flex items-center justify-center flex-col gap-4">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-400" />
-              <p className="text-muted-foreground animate-pulse">
-                Constructing artifact...
-              </p>
-            </div>
-          )}
-          {buildResult && (
-            <>
-              <div className="flex-1 overflow-y-auto bg-neutral-950 p-6 rounded-lg border border-border custom-scrollbar mb-4">
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <ReactMarkdown>{buildResult}</ReactMarkdown>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setBuildResult("");
-                    setIsBuilding(false);
-                  }}
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => {
-                    navigator.clipboard.writeText(buildResult);
-                  }}
-                  className="bg-indigo-600"
-                >
-                  <Save className="w-4 h-4 mr-2" /> Copy
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </Modal>
+      {buildModalOpen && (
+        <Modal
+          isOpen={buildModalOpen}
+          onClose={() => {
+            setBuildModalOpen(false);
+            setBuildResult("");
+            setBuildPrompt("");
+          }}
+          title="Build Artifact"
+          maxWidth="max-w-4xl"
+        >
+          <Suspense fallback={<ModalSkeleton />}>
+            <BuildArtifactModal
+              isOpen={buildModalOpen}
+              onClose={() => {
+                setBuildModalOpen(false);
+                setBuildResult("");
+                setBuildPrompt("");
+              }}
+              buildPrompt={buildPrompt}
+              setBuildPrompt={setBuildPrompt}
+              buildResult={buildResult}
+              setBuildResult={setBuildResult}
+              isBuilding={isBuilding}
+              setIsBuilding={setIsBuilding}
+              handleAgentBuild={handleAgentBuild}
+            />
+          </Suspense>
+        </Modal>
+      )}
 
       <ConfirmationModal
         isOpen={confirmModal.isOpen}
@@ -3566,106 +3522,110 @@ Example format:
       />
 
       {/* Sessions Modal */}
-      <Modal
-        isOpen={showSessionsModal}
-        onClose={() => setShowSessionsModal(false)}
-        title="Saved Sessions"
-      >
-        <div className="flex flex-col gap-4">
-          {/* Load Autosave */}
-          {(() => {
-            try {
-              const autosave = localStorage.getItem(AUTOSAVE_KEY);
-              if (autosave) {
-                const data = JSON.parse(autosave);
-                if (data.nodes && Object.keys(data.nodes).length > 0) {
-                  return (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-amber-400">Auto-saved Session</p>
-                          <p className="text-xs text-muted-foreground">
-                            {Object.keys(data.nodes).length} nodes • Last saved: {new Date(data.timestamp).toLocaleString()}
-                          </p>
+      {showSessionsModal && (
+        <Modal
+          isOpen={showSessionsModal}
+          onClose={() => setShowSessionsModal(false)}
+          title="Saved Sessions"
+        >
+          <Suspense fallback={<ModalSkeleton />}>
+            <div className="flex flex-col gap-4">
+              {/* Load Autosave */}
+              {(() => {
+                try {
+                  const autosave = localStorage.getItem(AUTOSAVE_KEY);
+                  if (autosave) {
+                    const data = JSON.parse(autosave);
+                    if (data.nodes && Object.keys(data.nodes).length > 0) {
+                      return (
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-bold text-amber-400">Auto-saved Session</p>
+                              <p className="text-xs text-muted-foreground">
+                                {Object.keys(data.nodes).length} nodes • Last saved: {new Date(data.timestamp).toLocaleString()}
+                              </p>
+                            </div>
+                            <Button
+                              onClick={loadAutosave}
+                              className="bg-amber-600 hover:bg-amber-500 text-foreground"
+                              size="sm"
+                            >
+                              <Clock className="w-4 h-4 mr-2" /> Recover
+                            </Button>
+                          </div>
                         </div>
+                      );
+                    }
+                  }
+                } catch (e) {
+                  return null;
+                }
+                return null;
+              })()}
+
+              {/* Save Current */}
+              <div className="flex gap-2">
+                <Input
+                  value={sessionName}
+                  onChange={(e) => setSessionName(e.target.value)}
+                  placeholder="Session name..."
+                  className="flex-1 bg-secondary border-border"
+                />
+                <Button
+                  onClick={() => {
+                    saveSession(sessionName);
+                    setSessionName("");
+                  }}
+                  disabled={Object.keys(nodes).length === 0}
+                  className="bg-indigo-600 hover:bg-indigo-500"
+                >
+                  <Save className="w-4 h-4 mr-2" /> Save
+                </Button>
+              </div>
+
+              {/* Sessions List */}
+              <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                {savedSessions.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No saved sessions yet</p>
+                ) : (
+                  savedSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex items-center justify-between p-3 bg-accent/50 border border-border rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">{session.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(session.date).toLocaleDateString()} • {session.nodeCount} nodes
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <Button
-                          onClick={loadAutosave}
-                          className="bg-amber-600 hover:bg-amber-500 text-foreground"
+                          variant="ghost"
                           size="sm"
+                          onClick={() => loadSession(session.id)}
+                          className="text-indigo-400 hover:text-indigo-300"
                         >
-                          <Clock className="w-4 h-4 mr-2" /> Recover
+                          Load
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteSession(session.id)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
-                  );
-                }
-              }
-            } catch (e) {
-              return null;
-            }
-            return null;
-          })()}
-
-          {/* Save Current */}
-          <div className="flex gap-2">
-            <Input
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              placeholder="Session name..."
-              className="flex-1 bg-secondary border-border"
-            />
-            <Button
-              onClick={() => {
-                saveSession(sessionName);
-                setSessionName("");
-              }}
-              disabled={Object.keys(nodes).length === 0}
-              className="bg-indigo-600 hover:bg-indigo-500"
-            >
-              <Save className="w-4 h-4 mr-2" /> Save
-            </Button>
-          </div>
-
-          {/* Sessions List */}
-          <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-            {savedSessions.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No saved sessions yet</p>
-            ) : (
-              savedSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="flex items-center justify-between p-3 bg-accent/50 border border-border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{session.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(session.date).toLocaleDateString()} • {session.nodeCount} nodes
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => loadSession(session.id)}
-                      className="text-indigo-400 hover:text-indigo-300"
-                    >
-                      Load
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteSession(session.id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </Modal>
+                  ))
+                )}
+              </div>
+            </div>
+          </Suspense>
+        </Modal>
+      )}
 
       {/* Templates Modal */}
       <Modal

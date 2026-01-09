@@ -2,6 +2,29 @@ import React from 'react';
 import { Loader2, Zap, Save } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
+interface HexNode {
+  text: string;
+  description: string;
+  type: string;
+}
+
+interface Nodes {
+  [key: string]: HexNode;
+}
+
+interface BuildArtifactModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  buildPrompt: string;
+  setBuildPrompt: (prompt: string) => void;
+  buildResult: string;
+  setBuildResult: (result: string) => void;
+  isBuilding: boolean;
+  setIsBuilding: (building: boolean) => void;
+  nodes: Nodes;
+  apiKey: string;
+}
+
 const BUILD_TEMPLATES = [
   { label: "Project Proposal", prompt: "Write a comprehensive project proposal based on these ideas. Include Executive Summary, Objectives, Methodology, and Timeline." },
   { label: "SWOT Analysis", prompt: "Perform a SWOT Analysis (Strengths, Weaknesses, Opportunities, Threats) based on the mapped concepts." },
@@ -20,9 +43,36 @@ export default function BuildArtifactModal({
   setBuildResult,
   isBuilding,
   setIsBuilding,
-  handleAgentBuild
-}) {
+  nodes,
+  apiKey
+}: BuildArtifactModalProps) {
   if (!isOpen) return null;
+
+  const handleAgentBuild = async () => {
+    if (!buildPrompt.trim()) return;
+    setIsBuilding(true);
+    setBuildResult("");
+
+    const context = Object.values(nodes).map(n => `- [${n.type}] ${n.text}: ${n.description}`).join("\n");
+    const prompt = `Context:\n${context}\n\nUser Request: ${buildPrompt}\n\nDetermine the best format and generate it in Markdown.`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        }
+      );
+      const result = await response.json();
+      setBuildResult(result.candidates?.[0]?.content?.parts?.[0]?.text || "Failed to build.");
+    } catch (e) {
+      setBuildResult("Error building artifact.");
+    } finally {
+      setIsBuilding(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-[60vh]">

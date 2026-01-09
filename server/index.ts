@@ -24,10 +24,17 @@ async function startServer() {
   // Parse JSON request bodies
   app.use(express.json());
 
+  const rawBasePath = process.env.BASE_PATH || "/hivemind";
+  const normalizedBasePath = rawBasePath.replace(/\/+$/, "");
+  const basePath = normalizedBasePath === "" ? "/" : normalizedBasePath;
+  const apiBasePath = basePath === "/" ? "" : basePath;
+
+  const apiRouter = express.Router();
+
   // API Proxy Endpoints
   // POST /api/generate - Text generation proxy
   // Accepts the full Gemini API request body format
-  app.post("/api/generate", apiLimiter, async (req, res) => {
+  apiRouter.post("/generate", apiLimiter, async (req, res) => {
     try {
       const { model, ...geminiRequestBody } = req.body;
 
@@ -82,7 +89,7 @@ async function startServer() {
 
   // POST /api/generate-image - Image generation proxy (alias for /api/generate)
   // Both text and image generation use the same endpoint
-  app.post("/api/generate-image", apiLimiter, async (req, res) => {
+  apiRouter.post("/generate-image", apiLimiter, async (req, res) => {
     try {
       const { model, ...geminiRequestBody } = req.body;
 
@@ -135,15 +142,18 @@ async function startServer() {
     }
   });
 
+  app.use("/api", apiRouter);
+  if (apiBasePath) {
+    app.use(`${apiBasePath}/api`, apiRouter);
+  }
+
   // Serve static files from dist/public in production
   const staticPath =
     process.env.NODE_ENV === "production"
       ? path.resolve(__dirname, "public")
       : path.resolve(__dirname, "..", "dist", "public");
 
-  // Base path for serving under /hivemind/ subpath
-  const basePath = process.env.BASE_PATH || '/hivemind';
-
+  // Base path for serving under the configured subpath
   // Serve static files at the base path
   app.use(basePath, express.static(staticPath));
 
