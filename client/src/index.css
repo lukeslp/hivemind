@@ -243,8 +243,11 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #333;
+    background: oklch(0.5 0.01 0);
     border-radius: 3px;
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: oklch(0.4 0.01 0);
   }
 
   /* Prose styling for markdown */

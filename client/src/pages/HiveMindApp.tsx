@@ -107,7 +107,6 @@ const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
 // API key is now secured in backend - removed from client
 const GEMINI_TEXT_MODEL = "gemini-3-flash-preview";  // Text generation & analysis
-const GEMINI_IMAGE_MODEL = "gemini-2.0-flash-exp";   // Image generation (Nano Banana)
 const STORAGE_KEY = "hivemind_sessions";
 const AUTOSAVE_KEY = "hivemind_autosave";
 
