@@ -2758,6 +2758,12 @@ Example format:
               const isLoading = loadingNodes.has(key);
               const isAutoExpanding = autoExpandingNodes.has(key);
 
+              // Visual hierarchy calculations
+              const hoveredForHierarchy = hoveredNodeId === key;
+              const hierarchyLevel = getNodeHierarchyLevel(node, hoveredForHierarchy);
+              const scale = getHierarchyScale(hierarchyLevel);
+              const strokeWidth = getHierarchyStrokeWidth(hierarchyLevel);
+
               // Search and Filter Dimming
               const isDimmed =
                 (searchQuery &&
@@ -2767,15 +2773,17 @@ Example format:
               return (
                 <div
                   key={key}
+                  data-hierarchy={hierarchyLevel}
+                  data-key-theme={node.isKeyTheme ? "true" : undefined}
                   style={{
                     left: x,
                     top: y,
                     width: HEX_WIDTH,
                     height: HEX_HEIGHT,
-                    transform: "translate(-50%, -50%)",
+                    transform: `translate(-50%, -50%) scale(${scale})`,
                     zIndex: isSelected ? 20 : isHovered ? 15 : 10,
                   }}
-                  className={`absolute group transition-all duration-200 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
+                  className={`absolute group transition-all duration-300 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
                   onMouseEnter={() => {
                     // Add 100ms delay to prevent flicker
                     if (hoverDelayTimer.current) clearTimeout(hoverDelayTimer.current);
@@ -2859,10 +2867,9 @@ Example format:
                         className={`
                           hex-node relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
                           transition-transform duration-200
-                          ${isSelected ? "scale-110" : isHovered ? "scale-105" : ""}
                           ${isLoading || isAutoExpanding ? "animate-pulse" : ""}
-                          ${draggedNodeId === key ? "opacity-50 scale-95" : ""}
-                          ${dropTargetId === key ? "ring-4 ring-indigo-500 ring-opacity-75 scale-110" : ""}
+                          ${draggedNodeId === key ? "opacity-50" : ""}
+                          ${dropTargetId === key ? "ring-4 ring-indigo-500 ring-opacity-75" : ""}
                         `}
                       >
                         <svg
@@ -2902,21 +2909,24 @@ Example format:
                               transition-all duration-200
                               ${
                                 node.contextPrompt && !isAutoExpanding
-                                  ? "fill-card stroke-amber-400 stroke-[4]"
+                                  ? "fill-card stroke-amber-400"
                                   : isAutoExpanding
-                                    ? "fill-card stroke-purple-400 stroke-[4]"
+                                    ? "fill-card stroke-purple-400"
                                     : node.isKeyTheme
-                                      ? "fill-card stroke-yellow-300 stroke-[4]"
+                                      ? "fill-card stroke-yellow-300"
                                       : node.isClusterRoot
-                                        ? `fill-card ${getClusterColor(node.clusterId).stroke} stroke-[3]`
+                                        ? `fill-card ${getClusterColor(node.clusterId).stroke}`
                                         : isSelected
-                                          ? `fill-card ${style.border} stroke-[4]`
+                                          ? `fill-card ${style.border}`
                                           : isHovered
-                                            ? `fill-secondary ${style.border} stroke-[3]`
-                                            : `fill-background stroke-border/80 stroke-[2]`
+                                            ? `fill-secondary ${style.border}`
+                                            : `fill-background stroke-border/80`
                               }
                             `}
-                            style={node.isKeyTheme ? { filter: 'drop-shadow(0 0 4px rgba(253, 224, 71, 0.4))' } : undefined}
+                            style={{
+                              strokeWidth: strokeWidth,
+                              ...(node.isKeyTheme ? { filter: 'drop-shadow(0 0 4px rgba(253, 224, 71, 0.4))' } : {}),
+                            }}
                           />
 
                           {/* Inner glow for selected/hovered */}
