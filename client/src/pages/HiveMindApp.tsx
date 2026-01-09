@@ -1308,19 +1308,30 @@ export default function HiveMindApp() {
   // Helper to get nearest nodes for LLM context (for suggesting distant connections)
   const getNearestNodes = (centerNode: HexNode, maxNodes: number = 10): string => {
     const centerPos = { x: centerNode.q, y: centerNode.r };
+    const centerKey = getNodeKey(centerNode.q, centerNode.r);
 
-    const allNodes = Object.entries(nodes)
+    // Get key themes first (always include regardless of distance)
+    const keyThemes = Object.entries(nodes)
+      .filter(([key, node]) => node.isKeyTheme && key !== centerKey)
+      .map(([key, node]) => ({ key, node, distance: 0 }));
+
+    // Get nearby nodes (non-key-themes)
+    const nearbyNodes = Object.entries(nodes)
+      .filter(([key, node]) => !node.isKeyTheme && key !== centerKey)
       .map(([key, node]) => ({
         key,
         node,
         distance: Math.abs(node.q - centerPos.x) + Math.abs(node.r - centerPos.y),
       }))
-      .filter(({ key }) => key !== getNodeKey(centerNode.q, centerNode.r))
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, maxNodes);
+      .sort((a, b) => a.distance - b.distance);
 
-    return allNodes
-      .map(({ key, node }) => `- "${node.text}" [${node.type}] (${key})`)
+    // Combine: key themes first, then nearby nodes
+    const combined = [...keyThemes, ...nearbyNodes].slice(0, maxNodes);
+
+    return combined
+      .map(({ key, node }) =>
+        `- "${node.text}" [${node.type}]${node.isKeyTheme ? ' **[KEY THEME]**' : ''} (${key})`
+      )
       .join('\n');
   };
 
@@ -1352,6 +1363,14 @@ export default function HiveMindApp() {
     
     // Enhanced prompt with MANDATORY context prompting
     const systemPrompt = `You are a brainstorming engine for a hexagonal mind map. Style: ${tempDesc}.
+
+**CRITICAL - KEY THEME PRIORITIZATION:**
+Nodes marked as **[KEY THEME]** are the most important concepts. When generating:
+1. Consider how new concepts relate to or build upon key themes
+2. Suggest connections to key themes when relevant (even if spatially distant)
+3. Weight key themes more heavily when determining brainstorm direction
+4. If central idea is adjacent to a key theme, explore angles aligning with that theme
+
 Given a central idea, you MUST generate EXACTLY 6 distinct related nodes to fill all hexagonal neighbors.
 Each node should explore a different angle or aspect of the central idea.
 Types available: concept, action, technical, question, risk.
@@ -1405,8 +1424,10 @@ Example valid response:
 }`;
 
     const nearbyNodesContext = getNearestNodes(centerNode, 10);
+    const keyThemeCount = Object.values(nodes).filter(n => n.isKeyTheme).length;
 
     const userQuery = `Central idea: "${centerNode.text}"
+${keyThemeCount > 0 ? `\n**This brainstorm has ${keyThemeCount} key theme(s) - prioritize connections.**` : ''}
 Context: ${centerNode.description || "No additional context"}
 ${centerNode.contextInfo ? `Additional context: ${centerNode.contextInfo}` : ""}
 ${additionalContext ? `User input: ${additionalContext}` : ""}
@@ -1414,7 +1435,7 @@ ${additionalContext ? `User input: ${additionalContext}` : ""}
 Existing nearby nodes in the map:
 ${nearbyNodesContext}
 
-Generate 6 diverse related ideas. If any connect to existing nodes, suggest those connections.`;
+Generate 6 diverse related ideas. Connect to key themes when relevant.`;
 
     try {
       const response = await fetch(buildApiUrl("generate"), {
