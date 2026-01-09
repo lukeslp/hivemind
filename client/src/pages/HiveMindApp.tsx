@@ -252,6 +252,9 @@ interface HexNode {
   parentId?: string | null;
   pinned: boolean;
   isKeyTheme?: boolean;
+  hasDeepDive?: boolean;       // NEW: User opened deep dive analysis
+  wasInteracted?: boolean;     // NEW: User clicked/touched node
+  hierarchyLevel?: number;     // NEW: 1=key, 2=dive, 3=interacted, 4=hover, 5=untouched
   clusterId?: string;       // Identifies which cluster this node belongs to
   isClusterRoot?: boolean;  // True for root nodes of each cluster
   contextPrompt?: string;   // Question to ask user before expanding (e.g., "What kind of cafe?")
@@ -1192,6 +1195,27 @@ export default function HiveMindApp() {
 
   const getNodeKey = (q: number, r: number) => `${q},${r}`;
 
+  // Hierarchy helper functions for visual prominence
+  const getNodeHierarchyLevel = (node: HexNode, isHovered: boolean): number => {
+    if (node.isKeyTheme) return 1;        // Highest priority - user-marked
+    if (node.hasDeepDive) return 2;       // Second level - deep analysis done
+    if (node.wasInteracted) return 3;     // Third level - user clicked/expanded
+    if (isHovered) return 4;              // Fourth level - currently hovering
+    return 5;                             // Never touched - lowest prominence
+  };
+
+  // Get visual scale factor based on hierarchy (1.15 → 0.9)
+  const getHierarchyScale = (level: number): number => {
+    const scales = [1.15, 1.1, 1.05, 1.0, 0.9];
+    return scales[level - 1] || 1.0;
+  };
+
+  // Get stroke width based on hierarchy (5px → 2px)
+  const getHierarchyStrokeWidth = (level: number): number => {
+    const widths = [5, 4, 3, 3, 2];
+    return widths[level - 1] || 2;
+  };
+
   // Get cluster color palette for visual distinction
   const getClusterColor = (clusterId: string | undefined) => {
     if (!clusterId) return CLUSTER_COLORS[0]; // Default to main cluster color
@@ -1650,6 +1674,16 @@ Regenerate with a fresh perspective.`;
   };
 
   const handleDeepDive = async (node: HexNode) => {
+    const key = getNodeKey(node.q, node.r);
+
+    // Mark node as having deep dive analysis
+    if (!node.hasDeepDive) {
+      commitNodes({
+        ...nodes,
+        [key]: { ...node, hasDeepDive: true, wasInteracted: true },
+      });
+    }
+
     setDeepDiveTitle(node.text);
     setDeepDiveContent(null);
     setIsDeepDiveLoading(true);
@@ -2087,6 +2121,14 @@ Example format:
   };
 
   const handleNodeClick = (key: string, node: HexNode) => {
+    // Mark node as interacted (first time)
+    if (!node.wasInteracted) {
+      commitNodes({
+        ...nodes,
+        [key]: { ...node, wasInteracted: true },
+      });
+    }
+
     // Always select the node and open info panel
     setSelectedNodeId(key);
     setInspectedNodeId(key);
