@@ -870,6 +870,9 @@ export default function HiveMindApp() {
     const saved = localStorage.getItem('hivemind_sound');
     return saved === 'true'; // Default to false
   });
+  const [dismissedEmptyState, setDismissedEmptyState] = useState(() =>
+    localStorage.getItem('hivemind_dismissed_empty_state') === 'true'
+  );
 
   // Theme from context
   const { theme, toggleTheme } = useTheme();
@@ -2805,6 +2808,36 @@ Example format:
         onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
         className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden"
       >
+        {/* Empty State Guidance Overlay */}
+        {Object.keys(nodes).length === 0 && !dismissedEmptyState && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
+            <div className="bg-card border-2 border-primary/50 rounded-2xl p-8 max-w-md shadow-2xl pointer-events-auto">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-primary/20 rounded-xl">
+                  <Lightbulb className="w-8 h-8 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2">Welcome to HiveMind</h3>
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    Start by entering a core idea above. Click nodes to expand.
+                    Mark key themes with <Sparkles className="inline w-4 h-4 text-yellow-400" />
+                    {' '}to guide AI generation.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setDismissedEmptyState(true);
+                      localStorage.setItem('hivemind_dismissed_empty_state', 'true');
+                    }}
+                    size="sm"
+                  >
+                    Got it
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div
           className="absolute inset-0 transition-transform duration-75 ease-out"
           style={{
