@@ -1440,20 +1440,44 @@ ${nearbyNodesContext}
 
 Generate 6 diverse related ideas. Connect to key themes when relevant.`;
 
+    // Prepare request payload
+    const requestPayload = {
+      model: GEMINI_TEXT_MODEL,
+      contents: [{ parts: [{ text: userQuery }] }],
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.7 + (creativity * 0.6), // 0.7-1.3 based on creativity
+      },
+    };
+
+    // Validate request size to prevent quota exhaustion
+    const requestSize = JSON.stringify(requestPayload).length;
+    const MAX_REQUEST_SIZE = 50000; // 50KB limit
+
+    if (requestSize > MAX_REQUEST_SIZE) {
+      toast.error("Context too large - try marking fewer key themes");
+      setLoadingNodes(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      return;
+    }
+
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     try {
       const response = await fetch(buildApiUrl("generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: GEMINI_TEXT_MODEL,
-          contents: [{ parts: [{ text: userQuery }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.7 + (creativity * 0.6), // 0.7-1.3 based on creativity
-          },
-        }),
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const result = await response.json();
       console.log("=== API Response ===", result);
@@ -1635,6 +1659,17 @@ Generate 6 diverse related ideas. Connect to key themes when relevant.`;
         });
       }
     } catch (error) {
+      // Handle timeout specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error("Request timeout - try again");
+        setLoadingNodes(prev => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        return;
+      }
+
       console.error("AI Error:", error);
       // On error, still populate with placeholder nodes
       const currentNodes = nodesRef.current;
