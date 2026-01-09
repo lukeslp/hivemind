@@ -2801,7 +2801,7 @@ Example format:
                         // Accessibility attributes
                         tabIndex={0}
                         role="button"
-                        aria-label={`${node.text}, ${node.type} node, level ${node.depth}${node.pinned ? ', pinned' : ''}${node.isKeyTheme ? ', key theme' : ''}`}
+                        aria-label={`${node.text}, ${node.type} node, level ${node.depth}${node.pinned ? ', pinned' : ''}${node.isKeyTheme ? ', key theme' : ''}. Tap to expand. Long press for actions. Double tap for deep dive.`}
                         onKeyDown={(e) => handleNodeKeyDown(e, key, node)}
                         // Drag and drop
                         draggable={!node.pinned && node.type !== 'root'}
@@ -2848,7 +2848,10 @@ Example format:
                           e.stopPropagation();
                           longPressTimer.current = setTimeout(() => {
                             if (navigator.vibrate) navigator.vibrate(50);
-                            handleDeepDive(node);
+                            // Show context menu (FloatingActionBar) instead of deep dive
+                            setHoveredNodeId(key);
+                            setInspectedNodeId(key);
+                            setSelectedNodeId(key);
                             longPressTimer.current = null;
                           }, 500);
                         }}
