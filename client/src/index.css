@@ -163,6 +163,12 @@
     outline: none; /* Prevent double outline */
   }
 
+  /* Key theme focus indicator - enhanced visibility */
+  [data-key-theme="true"]:focus-visible {
+    filter: drop-shadow(0 0 0 4px oklch(0.85 0.15 85))
+            drop-shadow(0 0 12px oklch(0.85 0.15 85));
+  }
+
   /* Dialog/Modal focus trap indicator */
   [role="dialog"]:focus-visible,
   [role="alertdialog"]:focus-visible {

@@ -2233,16 +2233,16 @@ Example format:
 
   // Keyboard navigation handler for hexagon nodes
   const handleNodeKeyDown = (e: React.KeyboardEvent, key: string, node: HexNode) => {
-    // Enter or Space activates the node
-    if (e.key === 'Enter' || e.key === ' ') {
+    // Shift+Enter for deep dive (check this first!)
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      handleDeepDive(node);
+    }
+    // Enter or Space activates the node (expand)
+    else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       if (navigator.vibrate) navigator.vibrate(10);
       handleNodeClick(key, node);
-    }
-    // Shift+Enter for deep dive
-    else if (e.key === 'Enter' && e.shiftKey) {
-      e.preventDefault();
-      handleDeepDive(node);
     }
   };
 
