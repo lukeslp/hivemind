@@ -827,6 +827,7 @@ export default function HiveMindApp() {
 
   // Filter state
   const [filterType, setFilterType] = useState<string | null>(null);
+  const [showOnlyKeyThemes, setShowOnlyKeyThemes] = useState(false);
 
   // Template selection
   const [showTemplates, setShowTemplates] = useState(false);
@@ -902,12 +903,17 @@ export default function HiveMindApp() {
     const container = containerRef.current;
     if (!container) return {};
 
+    // Apply key theme filter first
+    const filteredNodes = showOnlyKeyThemes
+      ? Object.fromEntries(Object.entries(nodes).filter(([, n]) => n.isKeyTheme))
+      : nodes;
+
     const newVisibleNodes: Record<string, HexNode> = {};
     const { width, height} = container.getBoundingClientRect();
     const padding = HEX_WIDTH * 2;
 
-    for (const key in nodes) {
-      const node = nodes[key];
+    for (const key in filteredNodes) {
+      const node = filteredNodes[key];
       const { x, y } = hexToPixel(node.q, node.r);
       const screenX = width / 2 + viewState.x + x * viewState.zoom;
       const screenY = height / 2 + viewState.y + y * viewState.zoom;
@@ -922,7 +928,7 @@ export default function HiveMindApp() {
       }
     }
     return newVisibleNodes;
-  }, [nodes, viewState]);
+  }, [nodes, viewState, showOnlyKeyThemes]);
 
   // Update ref when nodes change
   useEffect(() => {
@@ -2574,6 +2580,29 @@ Example format:
               >
                 <Search className="w-4 h-4" />
               </button>
+
+              {/* Key Theme Filter */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setShowOnlyKeyThemes(!showOnlyKeyThemes);
+                      toast.info(showOnlyKeyThemes ? "Showing all" : "Showing key themes only");
+                    }}
+                    className={`p-2.5 rounded-lg transition-colors ${
+                      showOnlyKeyThemes
+                        ? "bg-yellow-400/20 text-yellow-300"
+                        : "hover:bg-accent text-foreground/80"
+                    }`}
+                    aria-label="Filter key themes"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {showOnlyKeyThemes ? "Show All" : "Filter Key Themes"}
+                </TooltipContent>
+              </Tooltip>
 
               {/* Session Management */}
               <div className="flex items-center gap-1 border-l border-border pl-2">
