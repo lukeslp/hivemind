@@ -901,6 +901,21 @@ export default function HiveMindApp() {
   // Hover delay for FloatingActionBar
   const hoverDelayTimer = useRef<NodeJS.Timeout | null>(null);
 
+  // --- Geometry Functions (must be defined before useMemo) ---
+  const hexToPixel = (q: number, r: number) => {
+    const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
+    const y = HEX_SIZE * ((3 / 2) * r);
+    return { x, y };
+  };
+
+  const pixelToHex = (x: number, y: number) => {
+    const q = Math.round((Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE);
+    const r = Math.round((2 / 3 * y) / HEX_SIZE);
+    return { q, r };
+  };
+
+  const getNodeKey = (q: number, r: number) => `${q},${r}`;
+
   // Viewport culling (useMemo for performance - no double renders)
   const visibleNodes = useMemo(() => {
     const container = containerRef.current;
@@ -1230,22 +1245,6 @@ export default function HiveMindApp() {
     window.addEventListener("keydown", handleKeyDown, { passive: false });
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo, handleRedo, selectedNodeId, nodes]);
-
-  // --- Geometry ---
-  const hexToPixel = (q: number, r: number) => {
-    const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
-    const y = HEX_SIZE * ((3 / 2) * r);
-    return { x, y };
-  };
-
-  // Inverse conversion: screen coordinates to hex grid coordinates
-  const pixelToHex = (x: number, y: number) => {
-    const q = Math.round((Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE);
-    const r = Math.round((2 / 3 * y) / HEX_SIZE);
-    return { q, r };
-  };
-
-  const getNodeKey = (q: number, r: number) => `${q},${r}`;
 
   // Hierarchy helper functions for visual prominence
   const getNodeHierarchyLevel = (node: HexNode, isHovered: boolean): number => {
