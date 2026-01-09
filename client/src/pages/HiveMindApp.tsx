@@ -3138,7 +3138,7 @@ Example format:
         <div 
           className="fixed bottom-4 left-4 right-4 sm:right-auto z-50 w-auto sm:w-[380px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto animate-in slide-in-from-left-2 duration-200"
         >
-          <div className="bg-neutral-900/98 backdrop-blur-xl border-2 border-border rounded-2xl shadow-2xl p-6 pointer-events-auto">
+          <div className="bg-card/98 backdrop-blur-xl border-2 border-border rounded-2xl shadow-2xl p-6 pointer-events-auto">
             {/* Header with close button */}
             <div className="flex items-start justify-between mb-6">
               <h2 className="text-fluid-2xl font-bold text-foreground pr-8">{nodes[inspectedNodeId].text}</h2>
