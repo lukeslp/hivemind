@@ -2896,7 +2896,7 @@ Example format:
                           )}
                         </svg>
 
-                        <div className="relative z-10 flex flex-col items-center gap-1 pointer-events-none px-3 max-w-[140px]">
+                        <div className="relative z-10 flex flex-col items-center gap-1 pointer-events-none px-2.5 max-w-[150px]">
                           {isLoading ? (
                             <Loader2 className={`w-6 h-6 animate-spin ${style.color}`} />
                           ) : (
@@ -2926,7 +2926,7 @@ Example format:
                                 );
                               })()}
                               <span
-                                className={`text-hex-node font-bold line-clamp-3 uppercase text-center ${node.isKeyTheme ? "text-foreground" : "text-card-foreground"}`}
+                                className={`text-hex-node font-bold line-clamp-4 uppercase text-center ${node.isKeyTheme ? "text-foreground" : "text-card-foreground"}`}
                                 style={{ wordBreak: 'break-word' }}
                               >
                                 {node.text}

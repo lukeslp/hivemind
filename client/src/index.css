@@ -200,11 +200,11 @@
     font-size: calc(clamp(1.5rem, 1.375rem + 0.625vw, 1.875rem) * var(--font-size-multiplier)); /* 24px -> 30px */
   }
 
-  /* Hexagon-specific text sizing - larger for better legibility */
+  /* Hexagon-specific text sizing - smaller for better fit */
   .text-hex-node {
-    font-size: calc(clamp(0.75rem, 0.625rem + 0.75vw, 0.9375rem) * var(--font-size-multiplier)); /* 12px -> 15px */
-    line-height: 1.2;
-    letter-spacing: 0.025em;
+    font-size: calc(clamp(0.625rem, 0.5625rem + 0.625vw, 0.8125rem) * var(--font-size-multiplier)); /* 10px -> 13px */
+    line-height: 1.15;
+    letter-spacing: 0.02em;
   }
 
   .container {
