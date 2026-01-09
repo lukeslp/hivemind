@@ -29,7 +29,6 @@ import {
   Activity,
   Terminal,
   Save,
-  Camera,
   Scissors,
   Crosshair,
   Thermometer,
@@ -38,7 +37,6 @@ import {
   Redo2,
   ChevronDown,
   ChevronRight,
-  Image as ImageIcon,
   Target,
   Sparkles,
   BookOpen,
@@ -254,8 +252,6 @@ interface HexNode {
   depth: number;
   parentId?: string | null;
   pinned: boolean;
-  imageUrl?: string;
-  videoUrl?: string;
   isKeyTheme?: boolean;
   clusterId?: string;       // Identifies which cluster this node belongs to
   isClusterRoot?: boolean;  // True for root nodes of each cluster
@@ -667,12 +663,11 @@ const Minimap = ({
   );
 };
 
-// Floating Action Bar - 3 essential contextual actions
+// Floating Action Bar - 2 essential contextual actions
 const FloatingActionBar = ({
   node,
   position,
   onRefresh,
-  onGenerateImage,
   onDeepDive,
   isLoading,
   onMouseEnter,
@@ -681,7 +676,6 @@ const FloatingActionBar = ({
   node: HexNode;
   position: { x: number; y: number };
   onRefresh: () => void;
-  onGenerateImage: () => void;
   onDeepDive: () => void;
   isLoading: boolean;
   onMouseEnter: () => void;
@@ -720,20 +714,6 @@ const FloatingActionBar = ({
           <TooltipContent>Refresh</TooltipContent>
         </Tooltip>
 
-        {/* Make Image - Generate visual for this concept */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onGenerateImage}
-              aria-label="Make Image - Generate a visual representation"
-              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-purple-500/20 text-purple-400 transition-all"
-            >
-              <ImageIcon className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Make Image</TooltipContent>
-        </Tooltip>
-
         {/* Deep Dive - Detailed analysis */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -756,7 +736,6 @@ export default function HiveMindApp() {
   // --- State ---
   const [nodes, setNodes] = useState<Record<string, HexNode>>({});
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
-  const [imageLoading, setImageLoading] = useState<string | null>(null);
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
   const [creativity, setCreativity] = useState(0.5);
@@ -1676,52 +1655,6 @@ Regenerate with a fresh perspective.`;
     }
   };
 
-  // Generate image for a node using Gemini (Nano Banana)
-  const generateImage = async (node: HexNode) => {
-    const key = getNodeKey(node.q, node.r);
-    if (imageLoading) return;
-    setImageLoading(key);
-
-    const prompt = `Create a visually compelling illustration for: ${node.text}${node.description ? `. Context: ${node.description}` : ''}`;
-
-    try {
-      const response = await fetch(buildApiUrl("generate-image"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: GEMINI_IMAGE_MODEL,
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseModalities: ["image", "text"],
-          },
-        }),
-      });
-
-      const result = await response.json();
-      if (!response.ok || result.error) {
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
-      }
-
-      // Find the inline_data part with the image
-      const parts = result.candidates?.[0]?.content?.parts || [];
-      const imagePart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType?.startsWith('image/'));
-
-      if (imagePart?.inlineData) {
-        const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-        const newNodes = { ...nodesRef.current };
-        newNodes[key] = { ...node, imageUrl };
-        commitNodes(newNodes);
-        if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
-      } else {
-        console.warn("No image in response:", result);
-      }
-    } catch (error) {
-      console.error("Image generation error:", error);
-    } finally {
-      setImageLoading(null);
-    }
-  };
-
   const handleDeepDive = async (node: HexNode) => {
     setDeepDiveTitle(node.text);
     setDeepDiveContent(null);
@@ -2518,7 +2451,7 @@ Example format:
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg"
                   title="Export PNG"
                 >
-                  <Camera className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
                 </button>
                 <button
                   onClick={exportAsImage}
@@ -3022,13 +2955,12 @@ Example format:
           </div>
         </div>
 
-        {/* Floating Action Bar - 3 Essential Actions: Refresh, Make Image, Deep Dive */}
+        {/* Floating Action Bar - 2 Essential Actions: Refresh, Deep Dive */}
         {hoveredNode && hoveredNodeId && !editingNodeId && (
           <FloatingActionBar
             node={hoveredNode}
             position={getNodeScreenPosition(hoveredNode)}
             onRefresh={() => refreshSingleNode(hoveredNode)}
-            onGenerateImage={() => generateImage(hoveredNode)}
             onDeepDive={() => handleDeepDive(hoveredNode)}
             isLoading={loadingNodes.has(hoveredNodeId)}
             onMouseEnter={() => setHoveredNodeId(hoveredNodeId)}
@@ -3253,18 +3185,6 @@ Example format:
                 </p>
               </div>
 
-              {/* Generated Image */}
-              {nodes[inspectedNodeId].imageUrl && (
-                <div>
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Generated Image</h4>
-                  <img
-                    src={nodes[inspectedNodeId].imageUrl}
-                    alt={nodes[inspectedNodeId].text}
-                    className="w-full rounded-xl border border-border shadow-lg"
-                  />
-                </div>
-              )}
-
               {/* Context Info */}
               {nodes[inspectedNodeId].contextInfo && (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
@@ -3292,18 +3212,10 @@ Example format:
                   Deep Dive Analysis
                 </button>
 
-                {/* Group 1: Generate & Enhance */}
+                {/* Group 1: Enhance & Refresh */}
                 <div>
-                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Generate</h5>
+                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Enhance</h5>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => generateImage(nodes[inspectedNodeId])}
-                      disabled={imageLoading === inspectedNodeId}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 text-sm transition-colors disabled:opacity-50"
-                    >
-                      {imageLoading === inspectedNodeId ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-                      {nodes[inspectedNodeId].imageUrl ? "Regen Image" : "Image"}
-                    </button>
                     <button
                       onClick={() => {
                         const contextInfo = prompt("Enter context info/notes:", nodes[inspectedNodeId].contextInfo || "");
@@ -3507,7 +3419,7 @@ Example format:
               setBuildResult={setBuildResult}
               isBuilding={isBuilding}
               setIsBuilding={setIsBuilding}
-              handleAgentBuild={handleAgentBuild}
+              nodes={nodes}
             />
           </Suspense>
         </Modal>

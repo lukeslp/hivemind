@@ -1,6 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DeepDiveModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export default function DeepDiveModal({
   content,
   isLoading
 }: DeepDiveModalProps) {
+  const { theme } = useTheme();
   if (!isOpen) return null;
 
   return (
@@ -22,7 +24,7 @@ export default function DeepDiveModal({
       {isLoading ? (
         <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-400" />
       ) : (
-        <div className="prose prose-invert prose-sm max-w-none">
+        <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'prose-invert' : ''}`}>
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>
       )}
