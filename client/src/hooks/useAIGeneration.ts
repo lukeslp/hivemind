@@ -110,7 +110,7 @@ const getNearestNodes = (
   allNodes: Record<string, HexNode>,
   maxNodes: number = 10
 ): string => {
-  const centerPos = { x: centerNode.q, y: centerNode.r };
+  const centerPos = { q: centerNode.q, r: centerNode.r };
   const centerKey = getNodeKey(centerNode.q, centerNode.r);
 
   // Get key themes first (always include regardless of distance)

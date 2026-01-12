@@ -140,6 +140,12 @@ export function useNodeManagement({
 
   // --- CRUD Operations ---
 
+  // commitNodes must be defined first since other CRUD operations depend on it
+  const commitNodes = useCallback((newNodes: Record<string, HexNode>) => {
+    // Push to history - this will trigger nodes update via useHistory
+    onHistoryPush(newNodes);
+  }, [onHistoryPush]);
+
   const addNode = useCallback((node: HexNode) => {
     const key = getNodeKey(node.q, node.r);
     const newNodes = { ...nodes, [key]: node };
@@ -159,11 +165,6 @@ export function useNodeManagement({
     const { [key]: removed, ...rest } = nodes;
     commitNodes(rest);
   }, [nodes, commitNodes]);
-
-  const commitNodes = useCallback((newNodes: Record<string, HexNode>) => {
-    // Push to history - this will trigger nodes update via useHistory
-    onHistoryPush(newNodes);
-  }, [onHistoryPush]);
 
   const clearAllNodes = useCallback(() => {
     commitNodes({});

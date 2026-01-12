@@ -618,10 +618,11 @@ export const HexCanvas = React.memo<HexCanvasProps>(({
         const clusterColor = getClusterColor(node.clusterId);
 
         // Search and Filter Dimming
-        const isDimmed =
+        const isDimmed = Boolean(
           (searchQuery &&
             !node.text.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (filterType && filterType !== 'all' && node.type !== filterType);
+          (filterType && filterType !== 'all' && node.type !== filterType)
+        );
 
         let hoverDelayTimer: NodeJS.Timeout | null = null;
 

@@ -245,57 +245,53 @@ const BUILD_TEMPLATES = [
   },
 ];
 
-// Types
-interface HexNode {
-  q: number;
-  r: number;
-  text: string;
-  description?: string;
-  type: string;
-  depth: number;
-  parentId?: string | null;
-  pinned: boolean;
-  isKeyTheme?: boolean;
-  hasDeepDive?: boolean;       // NEW: User opened deep dive analysis
-  wasInteracted?: boolean;     // NEW: User clicked/touched node
-  hierarchyLevel?: number;     // NEW: 1=key, 2=dive, 3=interacted, 4=hover, 5=untouched
-  clusterId?: string;       // Identifies which cluster this node belongs to
-  isClusterRoot?: boolean;  // True for root nodes of each cluster
-  contextPrompt?: string;   // Question to ask user before expanding (e.g., "What kind of cafe?")
-  contextInfo?: string;     // Generic user notes for LLM context (replaces location)
-  // Sprint 3: Enhanced artifacts
-  codeSnippet?: {
-    language: string;
-    code: string;
-  };
-  visualization?: {
-    type: 'chart' | 'map' | 'timeline' | 'diagram';
-    data: any;
-    config?: any;
-  };
-  linkedContext?: string[]; // Array of node keys for context transfer (Sprint 4)
-  relatedNodeKeys?: string[];  // LLM-suggested distant connections
-}
+// Types are now imported from @/types/hivemind (line 94)
 
-interface ViewState {
-  x: number;
-  y: number;
-  zoom: number;
-}
+// Helper: Calculate distance between two hex nodes
+const hexDistance = (a: { q: number; r: number }, b: { q: number; r: number }) => {
+  return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
+};
 
-interface ConfirmModalState {
-  isOpen: boolean;
-  title: string;
-  message: string;
-  onConfirm: () => void;
-}
+// Helper: Get nearest nodes for LLM context
+const getNearestNodes = (
+  centerNode: HexNode,
+  allNodes: Record<string, HexNode>,
+  maxNodes: number = 10
+): string => {
+  const centerPos = { q: centerNode.q, r: centerNode.r };
+  const centerKey = `${centerNode.q},${centerNode.r}`;
 
-interface GenerationTracker {
-  maxGenerationsPerSession: number;    // Maximum number of AI generations allowed per session
-  generationCooldown: number;          // Cooldown in milliseconds between auto-expansions
-  generationCount: number;             // Current count of generations in this session
-  lastGenerationTime: number | null;   // Timestamp of last generation (for cooldown)
-}
+  // Get key themes first (always include regardless of distance)
+  const keyThemes = Object.entries(allNodes)
+    .filter(([key, node]) => node.isKeyTheme && key !== centerKey)
+    .map(([key, node]) => ({
+      key,
+      node,
+      distance: hexDistance(centerPos, { q: node.q, r: node.r }),
+    }));
+
+  // Get nearest non-key-theme nodes
+  const nearbyNodes = Object.entries(allNodes)
+    .filter(([key, node]) => !node.isKeyTheme && key !== centerKey)
+    .map(([key, node]) => ({
+      key,
+      node,
+      distance: hexDistance(centerPos, { q: node.q, r: node.r }),
+    }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, Math.max(0, maxNodes - keyThemes.length));
+
+  const combined = [...keyThemes, ...nearbyNodes];
+
+  if (combined.length === 0) return "No nearby nodes yet.";
+
+  return combined
+    .map(({ node }) => {
+      const keyThemeLabel = node.isKeyTheme ? " [KEY THEME]" : "";
+      return `- [${node.type.toUpperCase()}] ${node.text}${keyThemeLabel}: ${node.description || "No description"}`;
+    })
+    .join("\n");
+};
 
 // --- Helper Components ---
 const ConfirmationModal = ({
@@ -764,6 +760,12 @@ export default function HiveMindApp() {
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
 
+  // Settings state - needed before hooks that depend on it
+  const [enableAutoSave, setEnableAutoSave] = useState(() => {
+    const saved = localStorage.getItem('hivemind_autosave');
+    return saved !== 'false'; // Default to true
+  });
+
   // Undo/Redo - using custom hook
   const {
     present: nodes,
@@ -887,10 +889,6 @@ export default function HiveMindApp() {
     if (saved) return saved === 'true';
     // Check for prefers-reduced-motion
     return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  });
-  const [enableAutoSave, setEnableAutoSave] = useState(() => {
-    const saved = localStorage.getItem('hivemind_autosave');
-    return saved !== 'false'; // Default to true
   });
   const [enableSoundEffects, setEnableSoundEffects] = useState(() => {
     const saved = localStorage.getItem('hivemind_sound');
@@ -1018,7 +1016,7 @@ export default function HiveMindApp() {
         const autosave = {
           nodes,
           viewState,
-          creativity,
+          creativity: aiGeneration.creativity,
           timestamp: Date.now(),
         };
         localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(autosave));
@@ -1026,7 +1024,7 @@ export default function HiveMindApp() {
         console.error("Autosave failed:", e);
       }
     }
-  }, [nodes, viewState, creativity, enableAutoSave]);
+  }, [nodes, viewState, aiGeneration.creativity, enableAutoSave]);
 
   // Persist settings to localStorage
   useEffect(() => {
@@ -1088,7 +1086,7 @@ export default function HiveMindApp() {
     const sessionData = {
       nodes,
       viewState,
-      creativity,
+      creativity: aiGeneration.creativity,
       keyThemes: Object.keys(nodes).filter(k => nodes[k].isKeyTheme),
     };
     try {
@@ -1108,7 +1106,7 @@ export default function HiveMindApp() {
         const parsed = JSON.parse(data);
         resetHistory(parsed.nodes);
         setViewState(parsed.viewState || { x: 0, y: 0, zoom: 0.8 });
-        setCreativity(parsed.creativity || 0.5);
+        aiGeneration.setCreativity(parsed.creativity || 0.5);
         setShowWelcome(false);
         setShowSessionsModal(false);
       }
@@ -1125,7 +1123,7 @@ export default function HiveMindApp() {
         if (data.nodes && Object.keys(data.nodes).length > 0) {
           resetHistory(data.nodes);
           setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
-          setCreativity(data.creativity || 0.5);
+          aiGeneration.setCreativity(data.creativity || 0.5);
           setShowWelcome(false);
           setShowSessionsModal(false);
         }
@@ -1150,7 +1148,7 @@ export default function HiveMindApp() {
     const data = {
       nodes,
       viewState,
-      creativity,
+      creativity: aiGeneration.creativity,
       exportDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1170,7 +1168,7 @@ export default function HiveMindApp() {
         if (data.nodes) {
           resetHistory(data.nodes);
           setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
-          setCreativity(data.creativity || 0.5);
+          aiGeneration.setCreativity(data.creativity || 0.5);
           setShowWelcome(false);
         }
       } catch (err) {
@@ -1323,9 +1321,9 @@ export default function HiveMindApp() {
     setLoadingNodes(prev => new Set([...Array.from(prev), key]));
 
     const tempDesc =
-      creativity < 0.3
+      aiGeneration.creativity < 0.3
         ? "Logical, concrete, and safe"
-        : creativity > 0.7
+        : aiGeneration.creativity > 0.7
           ? "Wild, abstract, and out-of-the-box"
           : "Balanced and creative";
     
@@ -1391,7 +1389,7 @@ Example valid response:
   ]
 }`;
 
-    const nearbyNodesContext = getNearestNodes(centerNode, 10);
+    const nearbyNodesContext = getNearestNodes(centerNode, nodes, 10);
     const keyThemeCount = Object.values(nodes).filter(n => n.isKeyTheme).length;
 
     const userQuery = `Central idea: "${centerNode.text}"
@@ -1412,7 +1410,7 @@ Generate 6 diverse related ideas. Connect to key themes when relevant.`;
       systemInstruction: { parts: [{ text: systemPrompt }] },
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.7 + (creativity * 0.6), // 0.7-1.3 based on creativity
+        temperature: 0.7 + (aiGeneration.creativity * 0.6), // 0.7-1.3 based on creativity
       },
     };
 
@@ -1679,9 +1677,9 @@ Generate 6 diverse related ideas. Connect to key themes when relevant.`;
     setLoadingNodes(prev => new Set([...Array.from(prev), key]));
 
     const tempDesc =
-      creativity < 0.3
+      aiGeneration.creativity < 0.3
         ? "Logical, concrete, and safe"
-        : creativity > 0.7
+        : aiGeneration.creativity > 0.7
           ? "Wild, abstract, and out-of-the-box"
           : "Balanced and creative";
 
@@ -1710,7 +1708,7 @@ Regenerate with a fresh perspective.`;
           systemInstruction: { parts: [{ text: systemPrompt }] },
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.8 + (creativity * 0.5),
+            temperature: 0.8 + (aiGeneration.creativity * 0.5),
           },
         }),
       });
@@ -2132,7 +2130,7 @@ Example format:
     const data = {
       nodes,
       viewState,
-      creativity,
+      creativity: aiGeneration.creativity,
     };
     const compressed = btoa(JSON.stringify(data));
     const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(compressed)}`;
@@ -2155,7 +2153,7 @@ Example format:
         if (decoded.nodes && Object.keys(decoded.nodes).length > 0) {
           commitNodes(decoded.nodes);
           if (decoded.viewState) setViewState(decoded.viewState);
-          if (decoded.creativity !== undefined) setCreativity(decoded.creativity);
+          if (decoded.creativity !== undefined) aiGeneration.setCreativity(decoded.creativity);
           setShowWelcome(false);
         }
       } catch (e) {
@@ -3962,8 +3960,8 @@ Example format:
         onClose={() => setShowSettingsModal(false)}
         theme={theme}
         toggleTheme={toggleTheme}
-        creativity={creativity}
-        setCreativity={setCreativity}
+        creativity={aiGeneration.creativity}
+        setCreativity={aiGeneration.setCreativity}
         fontSizeMultiplier={fontSizeMultiplier}
         setFontSizeMultiplier={setFontSizeMultiplier}
         enableAnimations={enableAnimations}
