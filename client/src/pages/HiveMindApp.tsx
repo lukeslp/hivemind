@@ -87,9 +87,11 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useNodeLabel, useToolbarLabel, useModalLabel } from "@/hooks/useAccessibilityLabels";
 import { useHiveMindAnnouncer } from "@/hooks/useAnnouncer";
 import { useAIGeneration } from "@/hooks/useAIGeneration";
+import { useNodeManagement } from "@/hooks/useNodeManagement";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import { buildApiUrl } from "@/lib/api";
 import { useHistory } from "@/hooks/useHistory";
+import type { HexNode, ViewState, ConfirmModalState, GenerationTracker } from "@/types/hivemind";
 
 // Lazy-loaded modal components for better performance
 const BuildArtifactModal = lazy(() => import("@/components/BuildArtifactModal"));
@@ -1300,35 +1302,7 @@ export default function HiveMindApp() {
   };
 
   // --- AI Functions ---
-  // Helper to get nearest nodes for LLM context (for suggesting distant connections)
-  const getNearestNodes = (centerNode: HexNode, maxNodes: number = 10): string => {
-    const centerPos = { x: centerNode.q, y: centerNode.r };
-    const centerKey = getNodeKey(centerNode.q, centerNode.r);
-
-    // Get key themes first (always include regardless of distance)
-    const keyThemes = Object.entries(nodes)
-      .filter(([key, node]) => node.isKeyTheme && key !== centerKey)
-      .map(([key, node]) => ({ key, node, distance: 0 }));
-
-    // Get nearby nodes (non-key-themes)
-    const nearbyNodes = Object.entries(nodes)
-      .filter(([key, node]) => !node.isKeyTheme && key !== centerKey)
-      .map(([key, node]) => ({
-        key,
-        node,
-        distance: Math.abs(node.q - centerPos.x) + Math.abs(node.r - centerPos.y),
-      }))
-      .sort((a, b) => a.distance - b.distance);
-
-    // Combine: key themes first, then nearby nodes
-    const combined = [...keyThemes, ...nearbyNodes].slice(0, maxNodes);
-
-    return combined
-      .map(({ key, node }) =>
-        `- "${node.text}" [${node.type}]${node.isKeyTheme ? ' **[KEY THEME]**' : ''} (${key})`
-      )
-      .join('\n');
-  };
+  // AI generation now handled by useAIGeneration hook
 
   const generateNeighbors = async (centerNode: HexNode, forceRefresh = false, additionalContext = "") => {
     const key = getNodeKey(centerNode.q, centerNode.r);
