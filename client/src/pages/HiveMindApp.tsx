@@ -62,6 +62,7 @@ import {
   Type,
   Volume2,
   VolumeX,
+  Image as ImageIcon,
 } from "@/lib/icons";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ import type { HexNode, ViewState, ConfirmModalState, GenerationTracker } from "@
 const BuildArtifactModal = lazy(() => import("@/components/BuildArtifactModal"));
 const DeepDiveModal = lazy(() => import("@/components/DeepDiveModal"));
 const SessionManagerModal = lazy(() => import("@/components/SessionManagerModal"));
+const ImageGenerationModal = lazy(() => import("@/components/ImageGenerationModal"));
 
 // Loading fallback for lazy-loaded modals
 const ModalSkeleton = () => (
@@ -962,6 +964,10 @@ export default function HiveMindApp() {
   const [showAddInfoModal, setShowAddInfoModal] = useState(false);
   const [addInfoNodeId, setAddInfoNodeId] = useState<string | null>(null);
   const [addInfoText, setAddInfoText] = useState("");
+
+  // Image generation modal state
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageModalNode, setImageModalNode] = useState<HexNode | null>(null);
 
   // Hover delay for FloatingActionBar
   const hoverDelayTimer = useRef<NodeJS.Timeout | null>(null);
@@ -3347,6 +3353,18 @@ Example format:
                 >
                   <BookOpen className="w-4 h-4" aria-hidden="true" />
                 </button>
+                {/* Generate Image */}
+                <button
+                  onClick={() => {
+                    setImageModalNode(nodes[inspectedNodeId]);
+                    setShowImageModal(true);
+                  }}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-purple-400 hover:bg-purple-500/20 transition-colors"
+                  title="Generate image"
+                  aria-label="Generate image"
+                >
+                  <ImageIcon className="w-4 h-4" aria-hidden="true" />
+                </button>
                 {/* Add/Update Context Info */}
                 <button
                   onClick={() => {
@@ -3984,6 +4002,20 @@ Example format:
         enableSmartExpansion={enableSmartExpansion}
         setEnableSmartExpansion={setEnableSmartExpansion}
       />
+
+      {/* Image Generation Modal */}
+      {showImageModal && imageModalNode && (
+        <Suspense fallback={null}>
+          <ImageGenerationModal
+            isOpen={showImageModal}
+            onClose={() => {
+              setShowImageModal(false);
+              setImageModalNode(null);
+            }}
+            node={imageModalNode}
+          />
+        </Suspense>
+      )}
 
       {/* Minimap */}
       {showMinimap && Object.keys(nodes).length > 0 && containerRef.current && (
