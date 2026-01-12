@@ -3384,8 +3384,9 @@ Example format:
                   }}
                   className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   title="Edit node"
+                  aria-label="Edit node"
                 >
-                  <Edit3 className="w-4 h-4" />
+                  <Edit3 className="w-4 h-4" aria-hidden="true" />
                 </button>
                 {/* Refresh */}
                 <button
@@ -3393,16 +3394,18 @@ Example format:
                   disabled={loadingNodes.has(inspectedNodeId)}
                   className="p-2 rounded-lg text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
                   title="Refresh node"
+                  aria-label="Refresh node"
                 >
-                  {loadingNodes.has(inspectedNodeId) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {loadingNodes.has(inspectedNodeId) ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="w-4 h-4" aria-hidden="true" />}
                 </button>
                 {/* Deep Dive */}
                 <button
                   onClick={() => handleDeepDive(nodes[inspectedNodeId])}
                   className="p-2 rounded-lg text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/20 transition-colors"
                   title="Deep dive analysis"
+                  aria-label="Deep dive analysis"
                 >
-                  <BookOpen className="w-4 h-4" />
+                  <BookOpen className="w-4 h-4" aria-hidden="true" />
                 </button>
                 {/* Add/Update Context Info */}
                 <button
@@ -3425,8 +3428,9 @@ Example format:
                       : "text-muted-foreground hover:text-blue-400 hover:bg-blue-500/20"
                   }`}
                   title={nodes[inspectedNodeId].contextInfo ? "Update context info" : "Add context info"}
+                  aria-label={nodes[inspectedNodeId].contextInfo ? "Update context info" : "Add context info"}
                 >
-                  <Info className="w-4 h-4" />
+                  <Info className="w-4 h-4" aria-hidden="true" />
                 </button>
                 {/* Key Theme Toggle */}
                 <button
@@ -3443,16 +3447,18 @@ Example format:
                       : "text-muted-foreground hover:text-amber-400 hover:bg-amber-500/20"
                   }`}
                   title={nodes[inspectedNodeId].isKeyTheme ? "Remove key theme" : "Mark as key theme"}
+                  aria-label={nodes[inspectedNodeId].isKeyTheme ? "Remove key theme" : "Mark as key theme"}
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
                 </button>
                 {/* Close */}
                 <button
                   onClick={() => setInspectedNodeId(null)}
                   className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ml-1"
                   title="Close panel"
+                  aria-label="Close panel"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
