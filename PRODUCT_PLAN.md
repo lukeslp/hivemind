@@ -2,7 +2,7 @@ HiveMind: Product Plan & Status Report
 
 1. Executive Summary
 
-HiveMind is a spatial, non-linear brainstorming tool that leverages generative AI to expand ideas into an infinite hexagonal grid. Unlike traditional list-based or rigid mind-mapping tools, HiveMind encourages organic exploration by visually connecting concepts, actions, and technical requirements in a "hive" structure. It bridges the gap between ideation and execution by including features to compile scattered thoughts into structured artifacts like project proposals and code architectures.
+HiveMind is a spatial, non-linear brainstorming tool that uses generative AI to expand ideas into an infinite hexagonal grid. Unlike traditional list-based or rigid mind-mapping tools, HiveMind encourages organic exploration by visually connecting concepts, actions, and technical requirements in a "hive" structure. It bridges the gap between ideation and execution by including features to compile scattered thoughts into structured artifacts like project proposals and code architectures.
 
 2. Current Status (v2.1)
 
