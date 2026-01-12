@@ -1261,11 +1261,11 @@ export default function HiveMindApp() {
         const currentNode = nodes[selectedNodeId];
         if (!currentNode) return;
 
-        const ARROW_DIRECTIONS: Record<string, { q: number; r: number }> = {
-          ArrowUp: { q: 0, r: -1 },
-          ArrowDown: { q: 0, r: 1 },
-          ArrowLeft: { q: -1, r: 0 },
-          ArrowRight: { q: 1, r: 0 },
+        const ARROW_DIRECTIONS: Record<string, { q: number; r: number; name: string }> = {
+          ArrowUp: { q: 0, r: -1, name: "up" },
+          ArrowDown: { q: 0, r: 1, name: "down" },
+          ArrowLeft: { q: -1, r: 0, name: "left" },
+          ArrowRight: { q: 1, r: 0, name: "right" },
         };
 
         const dir = ARROW_DIRECTIONS[e.key];
@@ -1277,6 +1277,47 @@ export default function HiveMindApp() {
 
         if (nodes[neighborKey]) {
           setSelectedNodeId(neighborKey);
+
+          // Announce navigation to screen readers
+          announcer.announceNodeNavigated(nodes[neighborKey].text, dir.name);
+
+          // Pan canvas to center the selected node
+          const { x, y } = hexToPixel(nQ, nR);
+          setViewState((prev) => ({
+            ...prev,
+            x: -x,
+            y: -y,
+          }));
+        } else {
+          // Announce blocked navigation
+          announcer.announceNavigationBlocked(dir.name);
+        }
+      }
+
+      // Home key to go to root node
+      if (e.key === "Home") {
+        e.preventDefault();
+        const rootKey = "0,0";
+        if (nodes[rootKey]) {
+          setSelectedNodeId(rootKey);
+          announcer.announceNodeNavigated(nodes[rootKey].text, "home");
+          // Center view on root
+          setViewState({ x: 0, y: 0, zoom: viewState.zoom });
+        }
+      }
+
+      // Delete/Backspace to prune node (except root)
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedNodeId && selectedNodeId !== "0,0") {
+        e.preventDefault();
+        pruneNode(selectedNodeId);
+      }
+
+      // Enter to expand node
+      if (e.key === "Enter" && selectedNodeId) {
+        e.preventDefault();
+        const node = nodes[selectedNodeId];
+        if (node) {
+          handleNodeClick(selectedNodeId, node);
         }
       }
 
@@ -1301,7 +1342,7 @@ export default function HiveMindApp() {
     };
     window.addEventListener("keydown", handleKeyDown, { passive: false });
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleUndo, handleRedo, selectedNodeId, nodes]);
+  }, [handleUndo, handleRedo, selectedNodeId, nodes, announcer, setViewState, viewState.zoom, hexToPixel]);
 
   // Hierarchy helper functions for visual prominence
   const getNodeHierarchyLevel = (node: HexNode, isHovered: boolean): number => {

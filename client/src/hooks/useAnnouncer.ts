@@ -201,6 +201,21 @@ export function useHiveMindAnnouncer() {
       announce('Action redone', 'polite');
     }, [announce]),
 
+    announceNodeNavigated: useCallback(
+      (nodeText: string, direction?: string) => {
+        const directionText = direction ? ` (${direction})` : '';
+        announce(`Navigated to: ${nodeText}${directionText}`, 'polite');
+      },
+      [announce]
+    ),
+
+    announceNavigationBlocked: useCallback(
+      (direction: string) => {
+        announce(`No node ${direction}`, 'polite');
+      },
+      [announce]
+    ),
+
     // Generic announcement for custom messages
     announce,
   };
