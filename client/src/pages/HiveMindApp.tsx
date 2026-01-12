@@ -92,6 +92,7 @@ import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import { buildApiUrl } from "@/lib/api";
 import { useHistory } from "@/hooks/useHistory";
 import { useCanvasInteraction } from "@/hooks/useCanvasInteraction";
+import { useSearch } from "@/hooks/useSearch";
 import type { HexNode, ViewState, ConfirmModalState, GenerationTracker } from "@/types/hivemind";
 
 // Lazy-loaded modal components for better performance
@@ -867,12 +868,8 @@ export default function HiveMindApp() {
     onHistoryPush: pushHistory,
   });
 
-  // Search
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<HexNode[]>([]);
-  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Search - using custom hook
+  const search = useSearch({ nodes });
 
   // Modals
   const [deepDiveContent, setDeepDiveContent] = useState<string | null>(null);
@@ -1115,8 +1112,8 @@ export default function HiveMindApp() {
       // Ctrl/Cmd + F - open search
       else if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
-        setIsSearchOpen(true);
-        setTimeout(() => searchInputRef.current?.focus(), 50);
+        search.setIsSearchOpen(true);
+        setTimeout(() => search.searchInputRef.current?.focus(), 50);
       }
     };
 
@@ -1287,8 +1284,8 @@ export default function HiveMindApp() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
         e.preventDefault();
-        setIsSearchOpen(true);
-        setTimeout(() => searchInputRef.current?.focus(), 50);
+        search.setIsSearchOpen(true);
+        setTimeout(() => search.searchInputRef.current?.focus(), 50);
       }
       // Escape to deselect
       if (e.key === "Escape") {
@@ -1360,26 +1357,11 @@ export default function HiveMindApp() {
   };
 
   // --- Search Logic ---
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setCurrentSearchIndex(-1);
-      return;
-    }
-    const results = Object.values(nodes).filter(
-      (n) =>
-        n.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        n.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setSearchResults(results);
-    setCurrentSearchIndex(results.length > 0 ? 0 : -1);
-  }, [searchQuery, nodes]);
-
-  const cycleSearch = () => {
-    if (searchResults.length === 0) return;
-    const nextIndex = (currentSearchIndex + 1) % searchResults.length;
-    setCurrentSearchIndex(nextIndex);
-    const target = searchResults[nextIndex];
+  // Search filtering is handled by the useSearch hook
+  // This function wraps the hook's cycleSearch and adds viewport navigation
+  const handleCycleSearch = () => {
+    const target = search.handleCycleSearch();
+    if (!target) return;
 
     // Jump to target
     const { x, y } = hexToPixel(target.q, target.r);
@@ -2532,12 +2514,12 @@ Example format:
               {/* Search Toggle */}
               <button
                 onClick={() => {
-                  setIsSearchOpen(!isSearchOpen);
-                  setTimeout(() => searchInputRef.current?.focus(), 50);
+                  search.setIsSearchOpen(!search.isSearchOpen);
+                  setTimeout(() => search.searchInputRef.current?.focus(), 50);
                 }}
-                aria-label={`${isSearchOpen ? 'Close' : 'Open'} search panel. Keyboard shortcut: Ctrl F`}
-                aria-pressed={isSearchOpen}
-                className={`p-2.5 rounded-lg transition-colors ${isSearchOpen ? "bg-accent text-accent-foreground" : "hover:bg-accent text-muted-foreground"}`}
+                aria-label={`${search.isSearchOpen ? 'Close' : 'Open'} search panel. Keyboard shortcut: Ctrl F`}
+                aria-pressed={search.isSearchOpen}
+                className={`p-2.5 rounded-lg transition-colors ${search.isSearchOpen ? "bg-accent text-accent-foreground" : "hover:bg-accent text-muted-foreground"}`}
               >
                 <Search className="w-4 h-4" />
               </button>
@@ -2650,26 +2632,26 @@ Example format:
         )}
 
         {/* Search Bar (Floating) */}
-        {isSearchOpen && (
+        {search.isSearchOpen && (
           <div className="interactive-ui pointer-events-auto absolute top-20 left-4 z-30 bg-card/90 backdrop-blur border border-border p-2 rounded-xl flex items-center gap-2 animate-in slide-in-from-top-2 w-64 shadow-xl">
             <Search className="w-4 h-4 text-muted-foreground ml-2" />
             <Input
-              ref={searchInputRef}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && cycleSearch()}
+              ref={search.searchInputRef}
+              value={search.searchQuery}
+              onChange={(e) => search.setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCycleSearch()}
               placeholder="Find idea..."
               className="bg-transparent border-none text-sm text-foreground placeholder:text-muted-foreground"
             />
-            {searchResults.length > 0 && (
+            {search.searchResults.length > 0 && (
               <span className="text-[10px] text-muted-foreground whitespace-nowrap px-2">
-                {currentSearchIndex + 1}/{searchResults.length}
+                {search.currentSearchIndex + 1}/{search.searchResults.length}
               </span>
             )}
             <button
               onClick={() => {
-                setIsSearchOpen(false);
-                setSearchQuery("");
+                search.setIsSearchOpen(false);
+                search.setSearchQuery("");
               }}
               className="p-1 hover:text-foreground text-muted-foreground"
             >
@@ -2879,8 +2861,8 @@ Example format:
 
               // Search and Filter Dimming
               const isDimmed =
-                (searchQuery &&
-                !node.text.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (search.searchQuery &&
+                !node.text.toLowerCase().includes(search.searchQuery.toLowerCase())) ||
                 (filterType && filterType !== 'all' && node.type !== filterType);
 
               return (
