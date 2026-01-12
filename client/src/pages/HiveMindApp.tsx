@@ -698,57 +698,45 @@ const FloatingActionBar = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="bg-card/95 backdrop-blur-xl border border-border rounded-full shadow-2xl px-2 py-1.5 flex items-center gap-1">
+      <div className="bg-card/98 backdrop-blur-xl border border-border rounded-2xl shadow-2xl px-2 py-1.5 flex items-center gap-1">
         {/* Refresh - Regenerate this node */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onRefresh}
-              disabled={isLoading}
-              aria-label="Refresh this tile - regenerate content with AI"
-              className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${isLoading ? "opacity-50" : "hover:bg-accent"} ${style.color}`}
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Refresh</TooltipContent>
-        </Tooltip>
+        <button
+          onClick={onRefresh}
+          disabled={isLoading}
+          className={`p-2 rounded-lg transition-colors ${isLoading ? "opacity-50" : "text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/20"}`}
+          title="Refresh node"
+          aria-label="Refresh node"
+        >
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+          )}
+        </button>
 
         {/* Deep Dive - Detailed analysis */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onDeepDive}
-              aria-label="Deep Dive - Get comprehensive AI analysis of this concept"
-              className="p-2.5 min-w-[40px] min-h-[40px] rounded-full hover:bg-indigo-500/20 text-indigo-400 transition-all"
-            >
-              <Target className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Deep Dive</TooltipContent>
-        </Tooltip>
+        <button
+          onClick={onDeepDive}
+          className="p-2 rounded-lg text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+          title="Deep dive analysis"
+          aria-label="Deep dive analysis"
+        >
+          <BookOpen className="w-4 h-4" aria-hidden="true" />
+        </button>
 
         {/* Mark as Key Theme - Prioritize this concept */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={onToggleKeyTheme}
-              aria-label={node.isKeyTheme ? "Remove Key Theme" : "Mark as Key Theme"}
-              className={`p-2.5 min-w-[40px] min-h-[40px] rounded-full transition-all ${
-                node.isKeyTheme
-                  ? "bg-yellow-400/20 text-yellow-300"
-                  : "hover:bg-yellow-400/10 text-yellow-500"
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{node.isKeyTheme ? "Unmark" : "Mark Key Theme"}</TooltipContent>
-        </Tooltip>
+        <button
+          onClick={onToggleKeyTheme}
+          className={`p-2 rounded-lg transition-colors ${
+            node.isKeyTheme
+              ? "text-amber-400 bg-amber-500/20"
+              : "text-muted-foreground hover:text-amber-400 hover:bg-amber-500/20"
+          }`}
+          title={node.isKeyTheme ? "Remove key theme" : "Mark as key theme"}
+          aria-label={node.isKeyTheme ? "Remove key theme" : "Mark as key theme"}
+        >
+          <Sparkles className="w-4 h-4" aria-hidden="true" />
+        </button>
       </div>
     </div>
   );
