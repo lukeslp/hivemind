@@ -2824,13 +2824,13 @@ Example format:
         onTouchStart={isTouchDevice ? handleTouchStart : undefined}
         onTouchMove={isTouchDevice ? handleTouchMove : undefined}
         onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
-        className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 dark:from-black dark:via-background dark:to-neutral-950"
+        className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 dark:from-[#050508] dark:via-[#0a0a0f] dark:to-[#0f0f18]"
       >
-        {/* Vignette overlay for depth */}
+        {/* Vignette overlay for depth - stronger in dark mode */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none dark:bg-[radial-gradient(ellipse_at_center,transparent_20%,rgba(0,0,0,0.4)_70%,rgba(0,0,0,0.7)_100%)]"
           style={{
-            background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.15) 90%, rgba(0,0,0,0.35) 100%)',
+            background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.1) 80%, rgba(0,0,0,0.25) 100%)',
           }}
           aria-hidden="true"
         />
@@ -2865,7 +2865,7 @@ Example format:
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={1}
-                    className="text-border/30 dark:text-white/[0.04]"
+                    className="text-border/40 dark:text-white/[0.12]"
                   />
                 );
               })}
@@ -2933,7 +2933,7 @@ Example format:
                     transform: `translate(-50%, -50%) scale(${scale})`,
                     zIndex: isSelected ? 20 : isHovered ? 15 : 10,
                   }}
-                  className={`absolute group transition-all duration-300 ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
+                  className={`absolute group transition-all duration-300 overflow-visible ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
                   onMouseEnter={() => {
                     // Add 100ms delay to prevent flicker
                     if (hoverDelayTimer.current) clearTimeout(hoverDelayTimer.current);
@@ -3022,7 +3022,7 @@ Example format:
                           }
                         }}
                         className={`
-                          hex-node relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
+                          hex-node relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center overflow-visible
                           transition-transform duration-200
                           ${isLoading || isAutoExpanding ? "animate-pulse" : ""}
                           ${draggedNodeId === key ? "opacity-50" : ""}
@@ -3037,7 +3037,8 @@ Example format:
                                 ? 'hex-shadow-hover'
                                 : 'hex-shadow-default'
                           }`}
-                          viewBox="0 0 173.2 200"
+                          viewBox="-4 -4 181.2 208"
+                          overflow="visible"
                         >
                           {/* Pattern definition for context info */}
                           {node.contextInfo && (

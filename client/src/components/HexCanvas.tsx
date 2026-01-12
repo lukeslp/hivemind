@@ -288,7 +288,7 @@ const HexNode = React.memo<{
         transform: `translate(-50%, -50%) scale(${scale})`,
         zIndex: isSelected ? 20 : isInspected ? 15 : 10,
       }}
-      className={`absolute group transition-all duration-300 ${isDimmed ? 'opacity-20 grayscale' : 'opacity-100'}`}
+      className={`absolute group transition-all duration-300 overflow-visible ${isDimmed ? 'opacity-20 grayscale' : 'opacity-100'}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -316,7 +316,7 @@ const HexNode = React.memo<{
         onTouchEnd={onTouchEnd}
         onTouchMove={onTouchMove}
         className={`
-          hex-node relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center
+          hex-node relative w-full h-full cursor-pointer flex items-center justify-center p-4 text-center overflow-visible
           transition-transform duration-200
           ${isLoading || isAutoExpanding ? 'animate-pulse' : ''}
           ${isDragged ? 'opacity-50' : ''}
@@ -331,7 +331,8 @@ const HexNode = React.memo<{
                 ? 'hex-shadow-hover'
                 : 'hex-shadow-default'
           }`}
-          viewBox="0 0 173.2 200"
+          viewBox="-4 -4 181.2 208"
+          overflow="visible"
         >
           {/* Pattern definition for context info */}
           {node.contextInfo && (
