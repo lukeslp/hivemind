@@ -86,8 +86,10 @@ import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNodeLabel, useToolbarLabel, useModalLabel } from "@/hooks/useAccessibilityLabels";
 import { useHiveMindAnnouncer } from "@/hooks/useAnnouncer";
+import { useAIGeneration } from "@/hooks/useAIGeneration";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import { buildApiUrl } from "@/lib/api";
+import { useHistory } from "@/hooks/useHistory";
 
 // Lazy-loaded modal components for better performance
 const BuildArtifactModal = lazy(() => import("@/components/BuildArtifactModal"));
@@ -756,15 +758,28 @@ const FloatingActionBar = ({
 
 export default function HiveMindApp() {
   // --- State ---
-  const [nodes, setNodes] = useState<Record<string, HexNode>>({});
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
-  const [creativity, setCreativity] = useState(0.5);
 
-  // Undo/Redo
-  const [history, setHistory] = useState<Record<string, HexNode>[]>([{}]);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  // Undo/Redo - using custom hook
+  const {
+    present: nodes,
+    canUndo,
+    canRedo,
+    push: pushHistory,
+    undo: performUndo,
+    redo: performRedo,
+    resetHistory,
+  } = useHistory<Record<string, HexNode>>({}, 50);
+
+  // AI Generation - using custom hook
+  const aiGeneration = useAIGeneration({
+    nodes,
+    NODE_TYPES,
+    maxGenerationsPerSession: 100,
+    enableSmartExpansion: true,
+  });
 
   // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -884,11 +899,8 @@ export default function HiveMindApp() {
   const [contextResponse, setContextResponse] = useState("");
   const [contextHistory, setContextHistory] = useState<Record<string, string>>({});  // Track user-provided context per node
 
-  // LLM Over-generation control
-  const [generationsThisSession, setGenerationsThisSession] = useState(0);
-  const [maxGenerationsPerSession] = useState(100); // Configurable limit
+  // LLM Over-generation control (now mostly handled by useAIGeneration hook)
   const [lastAutoExpandTime, setLastAutoExpandTime] = useState(0);
-  const [isThrottled, setIsThrottled] = useState(false);
 
   // Add Info modal state
   const [showAddInfoModal, setShowAddInfoModal] = useState(false);
@@ -971,15 +983,17 @@ export default function HiveMindApp() {
       if (keyThemesJson) {
         const keyThemeKeys: string[] = JSON.parse(keyThemesJson);
 
-        setNodes(prevNodes => {
-          const updated = { ...prevNodes };
-          keyThemeKeys.forEach(key => {
-            if (updated[key]) {
-              updated[key] = { ...updated[key], isKeyTheme: true, hierarchyLevel: 1 };
-            }
-          });
-          return updated;
+        const updated = { ...nodes };
+        keyThemeKeys.forEach(key => {
+          if (updated[key]) {
+            updated[key] = { ...updated[key], isKeyTheme: true, hierarchyLevel: 1 };
+          }
         });
+
+        // Only update if we actually modified something
+        if (keyThemeKeys.some(key => updated[key])) {
+          resetHistory(updated);
+        }
       }
     } catch (error) {
       console.error("Failed to load key themes:", error);
@@ -1081,12 +1095,10 @@ export default function HiveMindApp() {
       const data = localStorage.getItem(sessionId);
       if (data) {
         const parsed = JSON.parse(data);
-        setNodes(parsed.nodes);
+        resetHistory(parsed.nodes);
         setViewState(parsed.viewState || { x: 0, y: 0, zoom: 0.8 });
         setCreativity(parsed.creativity || 0.5);
         setShowWelcome(false);
-        setHistory([parsed.nodes]);
-        setHistoryIndex(0);
         setShowSessionsModal(false);
       }
     } catch (e) {
@@ -1100,12 +1112,10 @@ export default function HiveMindApp() {
       if (autosave) {
         const data = JSON.parse(autosave);
         if (data.nodes && Object.keys(data.nodes).length > 0) {
-          setNodes(data.nodes);
+          resetHistory(data.nodes);
           setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
           setCreativity(data.creativity || 0.5);
           setShowWelcome(false);
-          setHistory([data.nodes]);
-          setHistoryIndex(0);
           setShowSessionsModal(false);
         }
       }
@@ -1147,12 +1157,10 @@ export default function HiveMindApp() {
       try {
         const data = JSON.parse(e.target?.result as string);
         if (data.nodes) {
-          setNodes(data.nodes);
+          resetHistory(data.nodes);
           setViewState(data.viewState || { x: 0, y: 0, zoom: 0.8 });
           setCreativity(data.creativity || 0.5);
           setShowWelcome(false);
-          setHistory([data.nodes]);
-          setHistoryIndex(0);
         }
       } catch (err) {
         console.error("Failed to import session:", err);
@@ -1163,30 +1171,18 @@ export default function HiveMindApp() {
 
   // --- Undo/Redo Logic ---
   const commitNodes = (newNodes: Record<string, HexNode>) => {
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newNodes);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setNodes(newNodes);
+    pushHistory(newNodes);
   };
 
   const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setNodes(history[newIndex]);
-      announcer.announceUndo();
-    }
-  }, [history, historyIndex, announcer]);
+    performUndo();
+    announcer.announceUndo();
+  }, [performUndo, announcer]);
 
   const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setNodes(history[newIndex]);
-      announcer.announceRedo();
-    }
-  }, [history, historyIndex, announcer]);
+    performRedo();
+    announcer.announceRedo();
+  }, [performRedo, announcer]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2607,16 +2603,16 @@ Example format:
               <div className="flex items-center gap-1 border-l border-border pl-2">
                 <button
                   onClick={handleUndo}
-                  disabled={historyIndex === 0}
-                  aria-label={`Undo last action. Keyboard shortcut: Ctrl Z${historyIndex === 0 ? ' (unavailable)' : ''}`}
+                  disabled={!canUndo}
+                  aria-label={`Undo last action. Keyboard shortcut: Ctrl Z${!canUndo ? ' (unavailable)' : ''}`}
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-30"
                 >
                   <Undo2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleRedo}
-                  disabled={historyIndex === history.length - 1}
-                  aria-label={`Redo last action. Keyboard shortcut: Ctrl Shift Z${historyIndex === history.length - 1 ? ' (unavailable)' : ''}`}
+                  disabled={!canRedo}
+                  aria-label={`Redo last action. Keyboard shortcut: Ctrl Shift Z${!canRedo ? ' (unavailable)' : ''}`}
                   className="p-2.5 hover:bg-accent text-muted-foreground rounded-lg disabled:opacity-30"
                 >
                   <Redo2 className="w-4 h-4" />

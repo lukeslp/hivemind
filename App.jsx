@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Plus, 
-  Loader2, 
-  MousePointer2, 
-  Maximize2, 
-  Trash2, 
-  Zap, 
+import {
+  Plus,
+  Loader2,
+  MousePointer2,
+  Maximize2,
+  Trash2,
+  Zap,
   Layout,
   Info,
   RefreshCw,
@@ -39,6 +39,7 @@ import ReactMarkdown from 'react-markdown';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
+import useCanvasInteraction from './client/src/hooks/useCanvasInteraction';
 
 // --- Constants & Config ---
 const HEX_SIZE = 80; 
@@ -115,12 +116,28 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-2xl" }) => 
 };
 
 const App = () => {
+  // --- Canvas Interaction Hook ---
+  const {
+    viewState,
+    setViewState,
+    isDragging,
+    resetView,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleMouseLeave,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    handleWheel,
+    hexToPixel
+  } = useCanvasInteraction({ initialZoom: 0.8 });
+
   // --- State ---
   const [user, setUser] = useState(null);
   const [nodes, setNodes] = useState({});
   const [loadingNode, setLoadingNode] = useState(null);
   const [rootInput, setRootInput] = useState("");
-  const [viewState, setViewState] = useState({ x: 0, y: 0, zoom: 0.8 });
   const [creativity, setCreativity] = useState(0.5);
   const [visibleNodes, setVisibleNodes] = useState({});
 
@@ -136,8 +153,6 @@ const App = () => {
   const searchInputRef = useRef(null);
 
   // Interaction State
-  const [isDragging, setIsDragging] = useState(false);
-  const [touchDistance, setTouchDistance] = useState(0);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [editingNodeId, setEditingNodeId] = useState(null);
@@ -145,7 +160,6 @@ const App = () => {
   const [editDesc, setEditDesc] = useState("");
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
-  const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef(null);
 
   // Refs for state tracking during async ops
@@ -292,12 +306,6 @@ const App = () => {
   }, [handleUndo, handleRedo]);
 
   // --- Geometry ---
-  const hexToPixel = (q, r) => {
-    const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
-    const y = HEX_SIZE * (3 / 2 * r);
-    return { x, y };
-  };
-
   const getNodeKey = (q, r) => `${q},${r}`;
 
   // --- Search Logic ---
@@ -487,6 +495,7 @@ const App = () => {
     });
     
     commitNodes(newNodes);
+    resetView();
     setViewState({ x: 0, y: 0, zoom: 1 });
     setSelectedNodeId("0,0");
   };
@@ -521,6 +530,7 @@ const App = () => {
       const loadedNodes = JSON.parse(map.nodes);
       commitNodes(loadedNodes);
       setSavesModalOpen(false);
+      resetView();
       setViewState({ x: 0, y: 0, zoom: 1 });
       setShowWelcome(false);
     } });
@@ -532,6 +542,7 @@ const App = () => {
     const firstNode = { q: 0, r: 0, text: initialIdea, description: "Root Idea", depth: 0, pinned: true, type: "root" };
     commitNodes({ "0,0": firstNode });
     setRootInput("");
+    resetView();
     setViewState({ x: 0, y: 0, zoom: 1 });
     generateNeighbors(firstNode);
     setSelectedNodeId("0,0");
@@ -585,55 +596,7 @@ const App = () => {
     }
   };
 
-  // Canvas Interactions
-  const handleMouseDown = (e) => {
-    if (e.button !== 0 || e.target.closest('.interactive-ui')) return;
-    setIsDragging(true);
-    dragStart.current = { x: e.clientX - viewState.x, y: e.clientY - viewState.y };
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    setViewState(prev => ({ ...prev, x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y }));
-  };
-
-  const handleTouchStart = (e) => {
-    if (e.target.closest(".interactive-ui")) return;
-    if (e.touches.length === 1) {
-      setIsDragging(true);
-      dragStart.current = { x: e.touches[0].clientX - viewState.x, y: e.touches[0].clientY - viewState.y };
-    }
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      setTouchDistance(Math.sqrt(dx * dx + dy * dy));
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (e.touches.length === 1 && isDragging) {
-      setViewState(prev => ({ ...prev, x: e.touches[0].clientX - dragStart.current.x, y: e.touches[0].clientY - dragStart.current.y }));
-    }
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const newTouchDistance = Math.sqrt(dx * dx + dy * dy);
-      const scale = newTouchDistance / touchDistance;
-      setViewState(prev => ({ ...prev, zoom: Math.min(Math.max(prev.zoom * scale, 0.1), 3) }));
-      setTouchDistance(newTouchDistance);
-    }
-  };
-
-  const handleTouchEnd = (e) => {
-    setIsDragging(false);
-    setTouchDistance(0);
-  };
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-    setViewState(prev => ({ ...prev, zoom: Math.min(Math.max(prev.zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.1), 3) }));
-  };
-
+  // Export functionality
   const exportAsImage = () => {
     const svgContent = document.getElementById('hex-canvas-layer')?.innerHTML;
     if (!svgContent) return;
@@ -742,8 +705,8 @@ const App = () => {
               aria-label="Creativity slider"
             />
           </div>
-          
-          <button onClick={() => setViewState({ x: 0, y: 0, zoom: 0.8 })} className="p-3 bg-neutral-900/90 border border-white/10 rounded-xl hover:bg-white/5"><Maximize2 className="w-5 h-5" /></button>
+
+          <button onClick={resetView} className="p-3 bg-neutral-900/90 border border-white/10 rounded-xl hover:bg-white/5"><Maximize2 className="w-5 h-5" /></button>
         </div>
       </header>
 
@@ -752,8 +715,8 @@ const App = () => {
         ref={containerRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={() => setIsDragging(false)}
-        onMouseLeave={() => { setIsDragging(false); setHoveredNodeId(null); }}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={(e) => { handleMouseLeave(e); setHoveredNodeId(null); }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
