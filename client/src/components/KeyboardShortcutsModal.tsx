@@ -29,6 +29,11 @@ const shortcuts: ShortcutItem[] = [
   // Navigation
   {
     category: "Navigation",
+    keys: "↑ ↓ ← →",
+    description: "Navigate between adjacent hexagons in the grid",
+  },
+  {
+    category: "Navigation",
     keys: "Tab",
     description: "Move focus to next hexagon or UI element",
   },
@@ -36,6 +41,11 @@ const shortcuts: ShortcutItem[] = [
     category: "Navigation",
     keys: "Shift + Tab",
     description: "Move focus to previous hexagon or UI element",
+  },
+  {
+    category: "Navigation",
+    keys: "Home",
+    description: "Jump to root hexagon and center view",
   },
   {
     category: "Navigation",
@@ -50,10 +60,15 @@ const shortcuts: ShortcutItem[] = [
   {
     category: "Navigation",
     keys: "Escape",
-    description: "Close modal or panel",
+    description: "Close modal, deselect node, or exit edit mode",
   },
 
   // Actions
+  {
+    category: "Actions",
+    keys: "Delete / Backspace",
+    description: "Prune selected hexagon and its children (except root)",
+  },
   {
     category: "Actions",
     keys: "Ctrl/Cmd + Z",
