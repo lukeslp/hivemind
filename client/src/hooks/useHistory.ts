@@ -54,8 +54,9 @@ export function useHistory<T>(
   const [history, setHistory] = useState<T[]>([initialState]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  // Current state from history
-  const present = history[historyIndex];
+  // Current state from history (with defensive fallback)
+  // If historyIndex is somehow out of bounds, use the last valid state or initialState
+  const present = history[historyIndex] ?? history[history.length - 1] ?? initialState;
 
   // Navigation state
   const canUndo = historyIndex > 0;
@@ -75,19 +76,18 @@ export function useHistory<T>(
       // Limit history size
       if (newHistory.length > maxHistory) {
         // Keep the most recent entries
-        const trimmed = newHistory.slice(newHistory.length - maxHistory);
-        // Adjust index since we removed items from the beginning
-        setHistoryIndex(trimmed.length - 1);
-        return trimmed;
+        return newHistory.slice(newHistory.length - maxHistory);
       }
 
       return newHistory;
     });
 
-    // Move to the new state
+    // Move to the new state - handle both normal and trimmed cases
     setHistoryIndex(prev => {
-      const newIndex = prev + 1;
-      return Math.min(newIndex, maxHistory - 1);
+      // Calculate what the new history length will be
+      const newHistoryLength = Math.min(prev + 2, maxHistory); // +2 because prev is current, +1 for new item
+      // New index should point to the last item
+      return Math.min(prev + 1, newHistoryLength - 1, maxHistory - 1);
     });
   }, [historyIndex, maxHistory]);
 

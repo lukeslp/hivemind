@@ -2461,9 +2461,10 @@ Example format:
 
     // Parent-child connections (solid lines)
     Object.entries(visibleNodes)
-      .filter(([, node]) => node.parentId && nodes[node.parentId])
+      .filter(([, node]) => node.parentId && nodes && nodes[node.parentId])
       .forEach(([key, node]) => {
         const parent = nodes[node.parentId!];
+        if (!parent) return; // Extra safety check
         const childPos = hexToPixel(node.q, node.r);
         const parentPos = hexToPixel(parent.q, parent.r);
         const style = NODE_TYPES[node.type] || NODE_TYPES.default;
