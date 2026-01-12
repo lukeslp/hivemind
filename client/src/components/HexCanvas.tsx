@@ -379,8 +379,11 @@ const HexNode = React.memo<{
             `}
             style={{
               strokeWidth: strokeWidth,
+              paintOrder: 'stroke fill', // Fill renders over stroke to prevent overlap bleeding
               ...(node.isKeyTheme ? { filter: 'drop-shadow(0 0 4px rgba(253, 224, 71, 0.4))' } : {}),
             }}
+            strokeLinejoin="round"
+            strokeLinecap="round"
           />
 
           {/* Inner glow for selected/hovered */}

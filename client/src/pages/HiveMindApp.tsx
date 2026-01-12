@@ -935,6 +935,23 @@ export default function HiveMindApp() {
 
   const getNodeKey = (q: number, r: number) => `${q},${r}`;
 
+  // Background hex grid (faint lines showing grid even where no tiles exist)
+  const backgroundHexGrid = useMemo(() => {
+    const gridRadius = 15; // How many hexes out from center to render
+    const hexes: Array<{ q: number; r: number; key: string }> = [];
+
+    for (let q = -gridRadius; q <= gridRadius; q++) {
+      for (let r = -gridRadius; r <= gridRadius; r++) {
+        // Skip if this position has a node already
+        const key = getNodeKey(q, r);
+        if (!nodes[key]) {
+          hexes.push({ q, r, key });
+        }
+      }
+    }
+    return hexes;
+  }, [nodes]);
+
   // Viewport culling (useMemo for performance - no double renders)
   const visibleNodes = useMemo(() => {
     const container = containerRef.current;
@@ -2807,8 +2824,16 @@ Example format:
         onTouchStart={isTouchDevice ? handleTouchStart : undefined}
         onTouchMove={isTouchDevice ? handleTouchMove : undefined}
         onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
-        className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden"
+        className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 dark:from-black dark:via-background dark:to-neutral-950"
       >
+        {/* Vignette overlay for depth */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.15) 90%, rgba(0,0,0,0.35) 100%)',
+          }}
+          aria-hidden="true"
+        />
         <div
           className="absolute inset-0 transition-transform duration-75 ease-out"
           style={{
@@ -2818,6 +2843,34 @@ Example format:
         >
           {/* Center wrapper for positioning */}
           <div className="absolute top-1/2 left-1/2" id="hex-canvas-layer">
+            {/* Background Hex Grid - faint outlines showing grid structure */}
+            <svg
+              className="absolute pointer-events-none"
+              style={{
+                left: 0,
+                top: 0,
+                overflow: "visible",
+                width: 1,
+                height: 1,
+              }}
+              aria-hidden="true"
+            >
+              {backgroundHexGrid.map(({ q, r, key }) => {
+                const { x, y } = hexToPixel(q, r);
+                return (
+                  <path
+                    key={`bg-${key}`}
+                    d="M86.6 0L173.2 50V150L86.6 200L0 150V50L86.6 0Z"
+                    transform={`translate(${x - HEX_WIDTH / 2}, ${y - HEX_HEIGHT / 2}) scale(${HEX_WIDTH / 173.2})`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1}
+                    className="text-border/30 dark:text-white/[0.04]"
+                  />
+                );
+              })}
+            </svg>
+
             {/* Connection Lines Layer */}
             <svg
               className="absolute pointer-events-none"
@@ -3029,8 +3082,11 @@ Example format:
                             `}
                             style={{
                               strokeWidth: strokeWidth,
+                              paintOrder: 'stroke fill', // Fill renders over stroke to prevent overlap bleeding
                               ...(node.isKeyTheme ? { filter: 'drop-shadow(0 0 4px rgba(253, 224, 71, 0.4))' } : {}),
                             }}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
                           />
 
                           {/* Inner glow for selected/hovered */}
