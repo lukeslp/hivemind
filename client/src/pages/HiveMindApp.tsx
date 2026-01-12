@@ -1287,6 +1287,37 @@ export default function HiveMindApp() {
     return widths[level - 1] || 2;
   };
 
+  // Get z-index based on node importance and interaction state
+  // Higher z-index = renders on top of other nodes
+  const getNodeZIndex = (
+    node: HexNode,
+    isSelected: boolean,
+    isHovered: boolean,
+    isLoading: boolean
+  ): number => {
+    if (isSelected) return 50;           // Selected always on top
+    if (isHovered) return 40;            // Hovered second highest
+    if (node.isKeyTheme) return 30;      // Key themes prominent
+    if (node.hasDeepDive) return 25;     // Deep dive nodes elevated
+    if (node.wasInteracted) return 20;   // Interacted nodes above default
+    if (isLoading) return 15;            // Loading nodes slightly elevated
+    return 10;                           // Default/untouched nodes lowest
+  };
+
+  // Get shadow class based on hierarchy for visual elevation cues
+  const getShadowClass = (
+    node: HexNode,
+    isSelected: boolean,
+    isHovered: boolean
+  ): string => {
+    if (isSelected) return 'hex-shadow-selected';
+    if (isHovered) return 'hex-shadow-hover';
+    if (node.isKeyTheme) return 'hex-shadow-keytheme';
+    if (node.hasDeepDive) return 'hex-shadow-deepdive';
+    if (node.wasInteracted) return 'hex-shadow-interacted';
+    return 'hex-shadow-default';
+  };
+
   // Get cluster color palette for visual distinction
   const getClusterColor = (clusterId: string | undefined) => {
     if (!clusterId) return CLUSTER_COLORS[0]; // Default to main cluster color
@@ -2931,7 +2962,7 @@ Example format:
                     width: HEX_WIDTH,
                     height: HEX_HEIGHT,
                     transform: `translate(-50%, -50%) scale(${scale})`,
-                    zIndex: isSelected ? 20 : isHovered ? 15 : 10,
+                    zIndex: getNodeZIndex(node, isSelected, isHovered, isLoading),
                   }}
                   className={`absolute group transition-all duration-300 overflow-visible ${isDimmed ? "opacity-20 grayscale" : "opacity-100"}`}
                   onMouseEnter={() => {
@@ -3030,13 +3061,7 @@ Example format:
                         `}
                       >
                         <svg
-                          className={`absolute inset-0 w-full h-full transition-all duration-200 ${
-                            isSelected
-                              ? 'hex-shadow-selected'
-                              : isHovered
-                                ? 'hex-shadow-hover'
-                                : 'hex-shadow-default'
-                          }`}
+                          className={`absolute inset-0 w-full h-full transition-all duration-200 ${getShadowClass(node, isSelected, isHovered)}`}
                           viewBox="-4 -4 181.2 208"
                           overflow="visible"
                         >
