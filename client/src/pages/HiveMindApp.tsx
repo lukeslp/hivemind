@@ -91,6 +91,7 @@ import { useNodeManagement } from "@/hooks/useNodeManagement";
 import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import { buildApiUrl } from "@/lib/api";
 import { useHistory } from "@/hooks/useHistory";
+import { useCanvasInteraction } from "@/hooks/useCanvasInteraction";
 import type { HexNode, ViewState, ConfirmModalState, GenerationTracker } from "@/types/hivemind";
 
 // Lazy-loaded modal components for better performance
@@ -747,7 +748,6 @@ export default function HiveMindApp() {
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [generatingNeighbors, setGeneratingNeighbors] = useState<Set<string>>(new Set()); // Placeholder positions being generated
   const [rootInput, setRootInput] = useState("");
-  const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
 
   // Settings state - needed before hooks that depend on it
   const [enableAutoSave, setEnableAutoSave] = useState(() => {
@@ -774,6 +774,90 @@ export default function HiveMindApp() {
     enableSmartExpansion: true,
   });
 
+  // Interaction State
+  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null); // For action bar (clears on mouse leave)
+  // Detect touch device to prevent double-firing of touch + mouse events
+  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [showWelcome, setShowWelcome] = useState(true);
+  const justDropped = useRef(false); // Track if we just did a drag-and-drop (to suppress click)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Refs for state tracking during async ops
+  const nodesRef = useRef(nodes);
+
+  // --- Geometry Functions (defined early for use in hooks) ---
+  const hexToPixel = (q: number, r: number) => {
+    const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
+    const y = HEX_SIZE * ((3 / 2) * r);
+    return { x, y };
+  };
+
+  const pixelToHex = (x: number, y: number) => {
+    const q = Math.round((Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE);
+    const r = Math.round((2 / 3 * y) / HEX_SIZE);
+    return { q, r };
+  };
+
+  const getNodeKey = (q: number, r: number) => `${q},${r}`;
+
+  // Multi-cluster support (defined early for canvas interaction hook)
+  const [clusters, setClusters] = useState<string[]>(["main"]);
+
+  // Canvas interaction hook (pan/zoom/drag) - called early so viewState is available to other hooks
+  const createNewClusterCallback = useCallback((coords: { q: number; r: number }) => {
+    const input = prompt("What's your new idea?");
+    if (!input || !input.trim()) return;
+
+    const clusterId = `cluster_${Date.now()}`;
+    const key = getNodeKey(coords.q, coords.r);
+
+    const newNode: HexNode = {
+      q: coords.q,
+      r: coords.r,
+      text: input.trim(),
+      description: "",
+      type: "root",
+      depth: 0,
+      pinned: true,
+      clusterId,
+      isClusterRoot: true,
+    };
+
+    pushHistory({ ...nodes, [key]: newNode });
+    setClusters([...clusters, clusterId]);
+    setSelectedNodeId(key);
+    setInspectedNodeId(key);
+
+    // Auto-generate neighbors for the new cluster
+    setTimeout(() => aiGeneration.generateNeighbors(newNode), 100);
+
+    toast.success("New cluster created! Generating ideas...");
+  }, [nodes, clusters, getNodeKey, aiGeneration, pushHistory, setSelectedNodeId, setInspectedNodeId]);
+
+  const {
+    viewState,
+    setViewState,
+    isDragging,
+    setIsDragging,
+    touchDistance,
+    setTouchDistance,
+    hasDragged,
+    handlers: canvasHandlers,
+  } = useCanvasInteraction({
+    containerRef,
+    pixelToHex,
+    getNodeKey,
+    nodes,
+    onEmptySpaceClick: createNewClusterCallback,
+    justDropped,
+  });
+
   // Node Management - using custom hook
   const nodeManagement = useNodeManagement({
     nodes,
@@ -789,27 +873,6 @@ export default function HiveMindApp() {
   const [searchResults, setSearchResults] = useState<HexNode[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Interaction State
-  const [isDragging, setIsDragging] = useState(false);
-  const [touchDistance, setTouchDistance] = useState(0);
-  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null); // For action bar (clears on mouse leave)
-  // Detect touch device to prevent double-firing of touch + mouse events
-  const isTouchDevice = typeof window !== 'undefined' && 'ontouchstart' in window;
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [showWelcome, setShowWelcome] = useState(true);
-  const dragStart = useRef({ x: 0, y: 0 });
-  const hasDragged = useRef(false); // Track if mouse moved during drag (to distinguish click from pan)
-  const justDropped = useRef(false); // Track if we just did a drag-and-drop (to suppress click)
-  const containerRef = useRef<HTMLDivElement>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // Refs for state tracking during async ops
-  const nodesRef = useRef(nodes);
 
   // Modals
   const [deepDiveContent, setDeepDiveContent] = useState<string | null>(null);
@@ -861,9 +924,6 @@ export default function HiveMindApp() {
 
   // Quick tour modal
 
-  // Multi-cluster support
-  const [clusters, setClusters] = useState<string[]>(["main"]); // List of cluster IDs
-
   // Smart expansion settings
   const [enableSmartExpansion, setEnableSmartExpansion] = useState(true);
   const [autoExpandingNodes, setAutoExpandingNodes] = useState<Set<string>>(new Set());
@@ -908,21 +968,6 @@ export default function HiveMindApp() {
 
   // Hover delay for FloatingActionBar
   const hoverDelayTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // --- Geometry Functions (must be defined before useMemo) ---
-  const hexToPixel = (q: number, r: number) => {
-    const x = HEX_SIZE * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
-    const y = HEX_SIZE * ((3 / 2) * r);
-    return { x, y };
-  };
-
-  const pixelToHex = (x: number, y: number) => {
-    const q = Math.round((Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE);
-    const r = Math.round((2 / 3 * y) / HEX_SIZE);
-    return { q, r };
-  };
-
-  const getNodeKey = (q: number, r: number) => `${q},${r}`;
 
   // Background hex grid (faint lines showing grid even where no tiles exist)
   const backgroundHexGrid = useMemo(() => {
@@ -2146,37 +2191,6 @@ Example format:
     announcer.announceTemplateLoaded(template.name);
   };
 
-  // Create a new cluster at the clicked location
-  const createNewCluster = (coords: { q: number; r: number }) => {
-    const input = prompt("What's your new idea?");
-    if (!input || !input.trim()) return;
-
-    const clusterId = `cluster_${Date.now()}`;
-    const key = getNodeKey(coords.q, coords.r);
-
-    const newNode: HexNode = {
-      q: coords.q,
-      r: coords.r,
-      text: input.trim(),
-      description: "",
-      type: "root",
-      depth: 0,
-      pinned: true,
-      clusterId,
-      isClusterRoot: true,
-    };
-
-    commitNodes({ ...nodes, [key]: newNode });
-    setClusters([...clusters, clusterId]);
-    setSelectedNodeId(key);
-    setInspectedNodeId(key);
-
-    // Auto-generate neighbors for the new cluster
-    setTimeout(() => generateNeighbors(newNode), 100);
-
-    toast.success("New cluster created! Generating ideas...");
-  };
-
   // Share functions
   const generateShareUrl = () => {
     const data = {
@@ -2298,135 +2312,6 @@ Example format:
       handleNodeClick(key, node);
     }
   };
-
-  // Canvas Interactions
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0 || (e.target as HTMLElement).closest(".interactive-ui"))
-      return;
-    setIsDragging(true);
-    hasDragged.current = false; // Reset drag tracking
-    dragStart.current = { x: e.clientX - viewState.x, y: e.clientY - viewState.y };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    hasDragged.current = true; // Mouse moved while dragging = it's a pan, not a click
-    setViewState((prev) => ({
-      ...prev,
-      x: e.clientX - dragStart.current.x,
-      y: e.clientY - dragStart.current.y,
-    }));
-  };
-
-  // Handle click on empty canvas space to create new cluster
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    // Skip if dragging occurred, drop just happened, or clicking on a node/UI element
-    if (hasDragged.current) return;
-    if (justDropped.current) return;
-    if ((e.target as HTMLElement).closest(".hex-node, .interactive-ui, .floating-action-bar")) return;
-
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    // Convert screen coordinates to canvas coordinates (accounting for pan and zoom)
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const screenX = (e.clientX - rect.left - centerX - viewState.x) / viewState.zoom;
-    const screenY = (e.clientY - rect.top - centerY - viewState.y) / viewState.zoom;
-
-    // Convert to hex coordinates
-    const hexCoords = pixelToHex(screenX, screenY);
-    const key = getNodeKey(hexCoords.q, hexCoords.r);
-
-    // Only create cluster if this slot is empty
-    if (!nodes[key]) {
-      createNewCluster(hexCoords);
-    }
-  };
-
-  // Track touch position for tap detection
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest(".interactive-ui")) return;
-    if (e.touches.length === 1) {
-      setIsDragging(true);
-      hasDragged.current = false;
-      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      dragStart.current = {
-        x: e.touches[0].clientX - viewState.x,
-        y: e.touches[0].clientY - viewState.y,
-      };
-    }
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      setTouchDistance(Math.sqrt(dx * dx + dy * dy));
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 1 && isDragging) {
-      hasDragged.current = true;
-      setViewState((prev) => ({
-        ...prev,
-        x: e.touches[0].clientX - dragStart.current.x,
-        y: e.touches[0].clientY - dragStart.current.y,
-      }));
-    }
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const newTouchDistance = Math.sqrt(dx * dx + dy * dy);
-      const scale = newTouchDistance / touchDistance;
-      setViewState((prev) => ({
-        ...prev,
-        zoom: Math.min(Math.max(prev.zoom * scale, 0.1), 3),
-      }));
-      setTouchDistance(newTouchDistance);
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    // Check for tap (no drag) on empty space
-    if (!hasDragged.current && touchStartPos.current) {
-      const target = e.target as HTMLElement;
-      if (!target.closest(".hex-node, .interactive-ui, .floating-action-bar")) {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (rect) {
-          const centerX = rect.width / 2;
-          const centerY = rect.height / 2;
-          const screenX = (touchStartPos.current.x - rect.left - centerX - viewState.x) / viewState.zoom;
-          const screenY = (touchStartPos.current.y - rect.top - centerY - viewState.y) / viewState.zoom;
-          const hexCoords = pixelToHex(screenX, screenY);
-          const key = getNodeKey(hexCoords.q, hexCoords.r);
-          if (!nodes[key]) {
-            createNewCluster(hexCoords);
-          }
-        }
-      }
-    }
-    touchStartPos.current = null;
-    setIsDragging(false);
-    setTouchDistance(0);
-  };
-
-  // Wheel handler (uses native event for non-passive listener)
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      setViewState((prev) => ({
-        ...prev,
-        zoom: Math.min(Math.max(prev.zoom * (e.deltaY > 0 ? 0.9 : 1.1), 0.1), 3),
-      }));
-    };
-
-    container.addEventListener("wheel", handleWheel, { passive: false });
-    return () => container.removeEventListener("wheel", handleWheel);
-  }, []);
 
   const exportAsImage = () => {
     const svgContent = document.getElementById("hex-canvas-layer")?.innerHTML;
@@ -2847,17 +2732,19 @@ Example format:
       {/* Main Canvas */}
       <main
         ref={containerRef}
-        onMouseDown={!isTouchDevice ? handleMouseDown : undefined}
-        onMouseMove={!isTouchDevice ? handleMouseMove : undefined}
-        onMouseUp={!isTouchDevice ? () => setIsDragging(false) : undefined}
+        onMouseDown={!isTouchDevice ? canvasHandlers.handleMouseDown : undefined}
+        onMouseMove={!isTouchDevice ? canvasHandlers.handleMouseMove : undefined}
+        onMouseUp={!isTouchDevice ? () => {
+          canvasHandlers.handleMouseUp();
+        } : undefined}
         onMouseLeave={!isTouchDevice ? () => {
-          setIsDragging(false);
+          canvasHandlers.handleMouseLeave();
           setHoveredNodeId(null);
         } : undefined}
-        onClick={!isTouchDevice ? handleCanvasClick : undefined}
-        onTouchStart={isTouchDevice ? handleTouchStart : undefined}
-        onTouchMove={isTouchDevice ? handleTouchMove : undefined}
-        onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
+        onClick={!isTouchDevice ? canvasHandlers.handleCanvasClick : undefined}
+        onTouchStart={isTouchDevice ? canvasHandlers.handleTouchStart : undefined}
+        onTouchMove={isTouchDevice ? canvasHandlers.handleTouchMove : undefined}
+        onTouchEnd={isTouchDevice ? canvasHandlers.handleTouchEnd : undefined}
         className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 dark:from-[#12141a] dark:via-[#181b24] dark:to-[#1e222d]"
       >
         {/* Vignette overlay for depth - subtle darkening at edges */}
