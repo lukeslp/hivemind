@@ -5,9 +5,6 @@ HiveMind is a spatial, non-linear brainstorming tool using AI to expand ideas in
 
 ---
 
-<response>
-<text>
-
 ## Idea 1: Cyber-Hive Dark Mode (Original Evolution)
 
 **Design Movement:** Cyberpunk meets Organic Geometry - inspired by sci-fi interfaces and beehive structures
@@ -51,14 +48,7 @@ HiveMind is a spatial, non-linear brainstorming tool using AI to expand ideas in
 - Regular weight for descriptions
 - Size hierarchy: 9px labels, 14px body, 18px titles
 
-</text>
-<probability>0.08</probability>
-</response>
-
 ---
-
-<response>
-<text>
 
 ## Idea 2: Neural Network Light Mode
 
@@ -103,14 +93,7 @@ HiveMind is a spatial, non-linear brainstorming tool using AI to expand ideas in
 - Monospace for technical node content
 - Size hierarchy: 10px meta, 14px body, 24px headings
 
-</text>
-<probability>0.05</probability>
-</response>
-
 ---
-
-<response>
-<text>
 
 ## Idea 3: Bioluminescent Deep Sea
 
@@ -155,10 +138,6 @@ HiveMind is a spatial, non-linear brainstorming tool using AI to expand ideas in
 - DM Sans for body text
 - Generous letter-spacing for underwater feel
 - Size hierarchy: 11px whispers, 15px normal, 28px proclamations
-
-</text>
-<probability>0.03</probability>
-</response>
 
 ---
 
