@@ -815,6 +815,7 @@ export default function HiveMindApp() {
   const [showWelcome, setShowWelcome] = useState(true);
   const dragStart = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false); // Track if mouse moved during drag (to distinguish click from pan)
+  const justDropped = useRef(false); // Track if we just did a drag-and-drop (to suppress click)
   const containerRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -2268,8 +2269,9 @@ Example format:
 
   // Handle click on empty canvas space to create new cluster
   const handleCanvasClick = (e: React.MouseEvent) => {
-    // Skip if dragging occurred, or if clicking on a node/UI element
+    // Skip if dragging occurred, drop just happened, or clicking on a node/UI element
     if (hasDragged.current) return;
+    if (justDropped.current) return;
     if ((e.target as HTMLElement).closest(".hex-node, .interactive-ui, .floating-action-bar")) return;
 
     const rect = containerRef.current?.getBoundingClientRect();
@@ -2924,8 +2926,12 @@ Example format:
                         }}
                         onDrop={(e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           if (draggedNodeId && draggedNodeId !== key) {
+                            justDropped.current = true;
                             mergeNodes(draggedNodeId, key);
+                            // Clear the flag after a short delay to prevent spurious clicks
+                            setTimeout(() => { justDropped.current = false; }, 100);
                           }
                         }}
                         // Mouse interactions
@@ -3309,15 +3315,90 @@ Example format:
           className="fixed bottom-4 left-4 right-4 sm:right-auto z-50 w-auto sm:w-[380px] max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto animate-in slide-in-from-left-2 duration-200"
         >
           <div className="bg-card/98 backdrop-blur-xl border-2 border-border rounded-2xl shadow-2xl p-6 pointer-events-auto">
-            {/* Header with close button */}
-            <div className="flex items-start justify-between mb-6">
-              <h2 className="text-fluid-2xl font-bold text-foreground pr-8">{nodes[inspectedNodeId].text}</h2>
-              <button
-                onClick={() => setInspectedNodeId(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-accent"
-              >
-                <X className="w-5 h-5" />
-              </button>
+            {/* Header with action icons and close button */}
+            <div className="flex items-start justify-between gap-3 mb-6">
+              <h2 className="text-fluid-2xl font-bold text-foreground flex-1 min-w-0">{nodes[inspectedNodeId].text}</h2>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Edit */}
+                <button
+                  onClick={() => {
+                    setEditingNodeId(inspectedNodeId);
+                    setEditTitle(nodes[inspectedNodeId].text);
+                    setEditDesc(nodes[inspectedNodeId].description || "");
+                  }}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title="Edit node"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                {/* Refresh */}
+                <button
+                  onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
+                  disabled={loadingNodes.has(inspectedNodeId)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
+                  title="Refresh node"
+                >
+                  {loadingNodes.has(inspectedNodeId) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </button>
+                {/* Deep Dive */}
+                <button
+                  onClick={() => handleDeepDive(nodes[inspectedNodeId])}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+                  title="Deep dive analysis"
+                >
+                  <BookOpen className="w-4 h-4" />
+                </button>
+                {/* Add/Update Context Info */}
+                <button
+                  onClick={() => {
+                    const contextInfo = prompt("Enter context info/notes:", nodes[inspectedNodeId].contextInfo || "");
+                    if (contextInfo !== null) {
+                      commitNodes({
+                        ...nodes,
+                        [inspectedNodeId]: {
+                          ...nodes[inspectedNodeId],
+                          contextInfo: contextInfo.trim() || undefined
+                        }
+                      });
+                      toast.success(contextInfo.trim() ? "Context info added! Drag this node onto others to transfer context." : "Context info cleared.");
+                    }
+                  }}
+                  className={`p-2 rounded-lg transition-colors ${
+                    nodes[inspectedNodeId].contextInfo
+                      ? "text-blue-400 hover:bg-blue-500/20"
+                      : "text-muted-foreground hover:text-blue-400 hover:bg-blue-500/20"
+                  }`}
+                  title={nodes[inspectedNodeId].contextInfo ? "Update context info" : "Add context info"}
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+                {/* Key Theme Toggle */}
+                <button
+                  onClick={() => {
+                    const isNowKeyTheme = !nodes[inspectedNodeId].isKeyTheme;
+                    commitNodes({
+                      ...nodes,
+                      [inspectedNodeId]: { ...nodes[inspectedNodeId], isKeyTheme: isNowKeyTheme },
+                    });
+                  }}
+                  className={`p-2 rounded-lg transition-colors ${
+                    nodes[inspectedNodeId].isKeyTheme
+                      ? "text-amber-400 bg-amber-500/20"
+                      : "text-muted-foreground hover:text-amber-400 hover:bg-amber-500/20"
+                  }`}
+                  title={nodes[inspectedNodeId].isKeyTheme ? "Remove key theme" : "Mark as key theme"}
+                >
+                  <Sparkles className="w-4 h-4" />
+                </button>
+                {/* Close */}
+                <button
+                  onClick={() => setInspectedNodeId(null)}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors ml-1"
+                  title="Close panel"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-6">
@@ -3370,93 +3451,6 @@ Example format:
                 </div>
               )}
 
-              {/* Panel Actions - Organized into clear groups */}
-              <div className="flex flex-col gap-4 pt-4 border-t border-border">
-                {/* PRIMARY ACTION: Deep Dive - Most engaging feature */}
-                <button
-                  onClick={() => handleDeepDive(nodes[inspectedNodeId])}
-                  className="flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500/30 to-purple-500/30 hover:from-indigo-500/40 hover:to-purple-500/40 text-foreground text-base font-semibold transition-all shadow-lg hover:shadow-indigo-500/20"
-                >
-                  <BookOpen className="w-5 h-5" />
-                  Deep Dive Analysis
-                </button>
-
-                {/* Group 1: Enhance & Refresh */}
-                <div>
-                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Enhance</h5>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => {
-                        const contextInfo = prompt("Enter context info/notes:", nodes[inspectedNodeId].contextInfo || "");
-                        if (contextInfo !== null) {
-                          commitNodes({
-                            ...nodes,
-                            [inspectedNodeId]: {
-                              ...nodes[inspectedNodeId],
-                              contextInfo: contextInfo.trim() || undefined
-                            }
-                          });
-                          toast.success(contextInfo.trim() ? "Context info added! Drag this node onto others to transfer context." : "Context info cleared.");
-                        }
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-sm transition-colors"
-                    >
-                      <Info className="w-4 h-4" />
-                      {nodes[inspectedNodeId].contextInfo ? "Update" : "Add"} Info
-                    </button>
-                    <button
-                      onClick={() => refreshSingleNode(nodes[inspectedNodeId])}
-                      disabled={loadingNodes.has(inspectedNodeId)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 text-sm transition-colors disabled:opacity-50"
-                    >
-                      {loadingNodes.has(inspectedNodeId) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-
-                {/* Group 2: Edit & Organize */}
-                <div>
-                  <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Edit & Organize</h5>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingNodeId(inspectedNodeId);
-                        setEditTitle(nodes[inspectedNodeId].text);
-                        setEditDesc(nodes[inspectedNodeId].description || "");
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent hover:bg-white/20 text-neutral-300 text-sm transition-colors"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleManualAdd(nodes[inspectedNodeId])}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Child
-                    </button>
-                    <button
-                      onClick={() => {
-                        const isNowKeyTheme = !nodes[inspectedNodeId].isKeyTheme;
-                        commitNodes({
-                          ...nodes,
-                          [inspectedNodeId]: { ...nodes[inspectedNodeId], isKeyTheme: isNowKeyTheme },
-                        });
-                      }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                        nodes[inspectedNodeId].isKeyTheme
-                          ? "bg-amber-500/30 text-amber-300"
-                          : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400"
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      {nodes[inspectedNodeId].isKeyTheme ? "Key Theme" : "Mark Key"}
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
