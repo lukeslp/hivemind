@@ -35,7 +35,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // UI primitives - Radix components
+          // UI primitives - Radix components (only used ones)
           'ui-primitives': [
             '@radix-ui/react-dialog',
             '@radix-ui/react-tooltip',
@@ -43,24 +43,11 @@ export default defineConfig({
             '@radix-ui/react-switch',
             '@radix-ui/react-label',
             '@radix-ui/react-separator',
-            '@radix-ui/react-select',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-radio-group',
-            '@radix-ui/react-tabs',
             '@radix-ui/react-toggle',
-            '@radix-ui/react-toggle-group',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-scroll-area',
-            '@radix-ui/react-collapsible',
-            '@radix-ui/react-hover-card',
-            '@radix-ui/react-avatar',
           ],
           // Heavy vendor libraries
           'vendor-heavy': [
             'react-markdown',
-            'framer-motion',
           ],
           // Icons
           'icons': [
