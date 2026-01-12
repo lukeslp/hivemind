@@ -757,6 +757,7 @@ const FloatingActionBar = ({
 export default function HiveMindApp() {
   // --- State ---
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
+  const [generatingNeighbors, setGeneratingNeighbors] = useState<Set<string>>(new Set()); // Placeholder positions being generated
   const [rootInput, setRootInput] = useState("");
   const [viewState, setViewState] = useState<ViewState>({ x: 0, y: 0, zoom: 0.8 });
 
@@ -1369,6 +1370,13 @@ export default function HiveMindApp() {
     // Add this node to the loading set
     setLoadingNodes(prev => new Set([...Array.from(prev), key]));
 
+    // Calculate neighbor positions and add placeholder indicators
+    const neighborPositions = DIRECTIONS.map(dir =>
+      getNodeKey(centerNode.q + dir.q, centerNode.r + dir.r)
+    ).filter(nKey => !nodes[nKey]); // Only show placeholders for empty positions
+
+    setGeneratingNeighbors(prev => new Set([...Array.from(prev), ...neighborPositions]));
+
     const tempDesc =
       aiGeneration.creativity < 0.3
         ? "Logical, concrete, and safe"
@@ -1713,6 +1721,13 @@ Generate 6 diverse related ideas. Connect to key themes when relevant.`;
       setLoadingNodes(prev => {
         const next = new Set(prev);
         next.delete(key);
+        return next;
+      });
+
+      // Clear placeholder indicators for generated positions
+      setGeneratingNeighbors(prev => {
+        const next = new Set(prev);
+        neighborPositions.forEach(pos => next.delete(pos));
         return next;
       });
     }
@@ -2929,6 +2944,48 @@ Example format:
               ))}
             </svg>
 
+            {/* Generating Placeholder Hexes */}
+            {Array.from(generatingNeighbors).map((key) => {
+              const [qStr, rStr] = key.split(',');
+              const q = parseInt(qStr, 10);
+              const r = parseInt(rStr, 10);
+              const { x, y } = hexToPixel(q, r);
+
+              return (
+                <div
+                  key={`placeholder-${key}`}
+                  style={{
+                    left: x,
+                    top: y,
+                    width: HEX_WIDTH,
+                    height: HEX_HEIGHT,
+                    transform: 'translate(-50%, -50%) scale(0.85)',
+                    zIndex: 5,
+                  }}
+                  className="absolute pointer-events-none"
+                >
+                  <svg viewBox="0 0 100 100" className="w-full h-full animate-pulse">
+                    <polygon
+                      points="50,2 95,25 95,75 50,98 5,75 5,25"
+                      fill="transparent"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeDasharray="8 4"
+                      className="text-indigo-400/40"
+                    />
+                    <text
+                      x="50"
+                      y="54"
+                      textAnchor="middle"
+                      className="text-[10px] fill-indigo-400/60 font-medium"
+                    >
+                      •••
+                    </text>
+                  </svg>
+                </div>
+              );
+            })}
+
             {/* Nodes Layer */}
             {Object.entries(visibleNodes).map(([key, node]) => {
               const { x, y } = hexToPixel(node.q, node.r);
@@ -3550,7 +3607,7 @@ Example format:
           isOpen={!!deepDiveContent || isDeepDiveLoading}
           onClose={() => setDeepDiveContent(null)}
           title={`Deep Dive: ${deepDiveTitle}`}
-          maxWidth="max-w-5xl"
+          maxWidth="max-w-[920px]"
         >
           <Suspense fallback={<ModalSkeleton />}>
             {isDeepDiveLoading ? (
@@ -3869,7 +3926,7 @@ Example format:
           setTemplateContext("");
         }}
         title={pendingTemplate?.name || "Customize Template"}
-        maxWidth="max-w-md"
+        maxWidth="max-w-[640px]"
       >
         <div className="space-y-6">
           <div className="flex items-center gap-3">
