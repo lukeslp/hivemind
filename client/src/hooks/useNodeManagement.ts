@@ -27,8 +27,7 @@ export interface SessionData {
 }
 
 export interface UseNodeManagementReturn {
-  // State
-  nodes: Record<string, HexNode>;
+  // State (nodes come from useHistory, not duplicated here)
   loadingNodes: Set<string>;
   clusters: string[];
 
@@ -337,8 +336,7 @@ export function useNodeManagement({
   }, []);
 
   return {
-    // State
-    nodes,
+    // State (nodes managed by useHistory, passed in)
     loadingNodes,
     clusters,
 

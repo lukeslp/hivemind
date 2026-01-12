@@ -783,6 +783,15 @@ export default function HiveMindApp() {
     enableSmartExpansion: true,
   });
 
+  // Node Management - using custom hook
+  const nodeManagement = useNodeManagement({
+    nodes,
+    viewState,
+    creativity: aiGeneration.creativity,
+    enableAutoSave,
+    onHistoryPush: pushHistory,
+  });
+
   // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
