@@ -1303,22 +1303,12 @@ export default function HiveMindApp() {
 
   // --- AI Functions ---
   // AI generation now handled by useAIGeneration hook
-
+  // Wrapper function integrates hook with existing component state
   const generateNeighbors = async (centerNode: HexNode, forceRefresh = false, additionalContext = "") => {
     const key = getNodeKey(centerNode.q, centerNode.r);
 
     // Check if THIS specific node is already loading (allow other nodes to load in parallel)
     if (loadingNodes.has(key)) return;
-
-    // Check generation limit
-    if (generationsThisSession >= maxGenerationsPerSession) {
-      setIsThrottled(true);
-      toast.error("Generation limit reached for this session. Start a new session to continue.");
-      return;
-    }
-
-    // Increment generation counter
-    setGenerationsThisSession(prev => prev + 1);
 
     // Add this node to the loading set
     setLoadingNodes(prev => new Set([...Array.from(prev), key]));
