@@ -3929,41 +3929,65 @@ Example format:
         maxWidth="max-w-[640px]"
       >
         <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="text-4xl">{pendingTemplate?.icon}</span>
-            <p className="text-sm text-muted-foreground">{pendingTemplate?.description}</p>
+          <div className="flex items-center gap-4 pb-4 border-b border-border">
+            <span className="text-5xl">{pendingTemplate?.icon}</span>
+            <div>
+              <p className="text-sm text-muted-foreground">{pendingTemplate?.description}</p>
+              <p className="text-xs text-indigo-400 mt-1">
+                {pendingTemplate?.nodes.length} brainstorming areas to explore
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">
             <label className="text-sm font-medium text-card-foreground">
-              What specifically are you planning?
+              {pendingTemplate?.category === "product"
+                ? "What are you building?"
+                : pendingTemplate?.category === "creative"
+                  ? "What's your creative vision?"
+                  : pendingTemplate?.category === "business"
+                    ? "What's your business idea?"
+                    : pendingTemplate?.category === "research"
+                      ? "What are you researching?"
+                      : "What problem are you solving?"}
             </label>
-            <Input
+            <textarea
               value={templateContext}
               onChange={(e) => setTemplateContext(e.target.value)}
               placeholder={
                 pendingTemplate?.category === "product"
-                  ? "e.g., A mobile app for dog walkers..."
+                  ? "e.g., A mobile app that connects busy professionals with local dog walkers. Key features: real-time GPS tracking, secure payments, and walker reviews."
                   : pendingTemplate?.category === "creative"
-                    ? "e.g., A sci-fi novel about AI consciousness..."
+                    ? "e.g., A sci-fi novel exploring AI consciousness through the eyes of a robot therapist in 2150. Themes: identity, empathy, what it means to be human."
                     : pendingTemplate?.category === "business"
-                      ? "e.g., A coffee subscription service..."
-                      : "Describe your specific idea..."
+                      ? "e.g., A subscription coffee service delivering single-origin beans from small farms. Target: specialty coffee enthusiasts, $30-50/month price point."
+                      : pendingTemplate?.category === "research"
+                        ? "e.g., Investigating the impact of remote work on employee mental health. Focus: tech workers in large companies, 2020-2024 timeframe."
+                        : "Describe your idea in detail. Include goals, constraints, target audience, or any specific aspects you want to explore."
               }
-              className="bg-secondary border-border"
+              rows={4}
+              className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 resize-none"
               autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && templateContext.trim()) {
-                  generateContextualTemplate();
-                }
-              }}
             />
             <p className="text-xs text-muted-foreground">
-              The more specific you are, the more tailored your brainstorm will be.
+              More detail = more relevant brainstorming nodes. Include goals, constraints, or specific angles to explore.
             </p>
           </div>
 
           <div className="flex gap-3">
+            <Button
+              onClick={() => {
+                if (pendingTemplate) {
+                  loadTemplate(pendingTemplate);
+                  setPendingTemplate(null);
+                  setTemplateContext("");
+                }
+              }}
+              variant="outline"
+              className="border-border text-muted-foreground hover:text-foreground"
+            >
+              Use Default
+            </Button>
             <Button
               onClick={generateContextualTemplate}
               disabled={!templateContext.trim() || isGeneratingTemplate}
@@ -3977,16 +4001,6 @@ Example format:
               ) : (
                 "Generate Personalized Map"
               )}
-            </Button>
-            <Button
-              onClick={() => {
-                if (pendingTemplate) loadTemplate(pendingTemplate);
-                setPendingTemplate(null);
-              }}
-              variant="outline"
-              className="border-border text-muted-foreground"
-            >
-              Use Generic
             </Button>
           </div>
         </div>
