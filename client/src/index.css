@@ -329,20 +329,23 @@
             drop-shadow(0 10px 10px rgba(0, 0, 0, 0.1));
   }
 
-  /* Dark mode - stronger shadows for depth */
+  /* Dark mode - strong shadows for elevated floating effect */
   .dark .hex-shadow-default {
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3))
-            drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5))
+            drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35))
+            drop-shadow(0 0 1px rgba(0, 0, 0, 0.3));
   }
 
   .dark .hex-shadow-hover {
-    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.4))
-            drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.6))
+            drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4))
+            drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
   }
 
   .dark .hex-shadow-selected {
-    filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.5))
-            drop-shadow(0 10px 10px rgba(0, 0, 0, 0.4));
+    filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.7))
+            drop-shadow(0 10px 15px rgba(0, 0, 0, 0.5))
+            drop-shadow(0 0 3px rgba(0, 0, 0, 0.4));
   }
 
 }

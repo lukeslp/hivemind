@@ -2824,13 +2824,13 @@ Example format:
         onTouchStart={isTouchDevice ? handleTouchStart : undefined}
         onTouchMove={isTouchDevice ? handleTouchMove : undefined}
         onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
-        className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 dark:from-[#050508] dark:via-[#0a0a0f] dark:to-[#0f0f18]"
+        className="relative flex-1 cursor-grab active:cursor-grabbing overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 dark:from-[#12141a] dark:via-[#181b24] dark:to-[#1e222d]"
       >
-        {/* Vignette overlay for depth - stronger in dark mode */}
+        {/* Vignette overlay for depth - subtle darkening at edges */}
         <div
-          className="absolute inset-0 pointer-events-none dark:bg-[radial-gradient(ellipse_at_center,transparent_20%,rgba(0,0,0,0.4)_70%,rgba(0,0,0,0.7)_100%)]"
+          className="absolute inset-0 pointer-events-none dark:bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.2)_80%,rgba(0,0,0,0.4)_100%)]"
           style={{
-            background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.1) 80%, rgba(0,0,0,0.25) 100%)',
+            background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.08) 80%, rgba(0,0,0,0.15) 100%)',
           }}
           aria-hidden="true"
         />
@@ -2864,8 +2864,8 @@ Example format:
                     transform={`translate(${x - HEX_WIDTH / 2}, ${y - HEX_HEIGHT / 2}) scale(${HEX_WIDTH / 173.2})`}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth={1}
-                    className="text-border/40 dark:text-white/[0.12]"
+                    strokeWidth={0.75}
+                    className="text-border/30 dark:text-white/[0.06]"
                   />
                 );
               })}
