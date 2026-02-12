@@ -8,7 +8,7 @@ HiveMind is a spatial brainstorming tool using hexagonal grid expansion. Users c
 
 **Live URL**: `https://dr.eamer.dev/hivemind/`
 **GitHub**: hexmind (canonical name differs from local directory)
-**Port**: 5057 (production service)
+**Port**: 5057 (production, via `PORT=5057` in service manager)
 
 ## Commands
 
@@ -23,23 +23,27 @@ sm restart hivemind   # Restart production service
 sm logs hivemind      # View production logs
 ```
 
+**No tests**: vitest is in devDependencies but no test script or test files exist yet.
+
 ## Architecture
+
+### Two Large Files
+
+`HiveMindApp.tsx` (~4100 lines) and `HexCanvas.tsx` (~720 lines) are the two largest files. Use `@geepers_scalpel` for surgical edits to either. The main component orchestrates 7 extracted hooks plus handles keyboard shortcuts, node selection/editing, toolbar UI, settings panel, template loading, and all modal state.
 
 ### Hook-Extraction Pattern
 
-The app has been partially refactored from a monolithic `HiveMindApp.tsx` (4000+ lines) into extracted hooks, but the main component still contains significant inline logic. The hooks extracted so far:
+Hooks in `client/src/hooks/`:
 
 | Hook | Purpose |
 |------|---------|
 | `useAIGeneration` | Gemini API calls for neighbor generation + deep dive analysis |
 | `useNodeManagement` | CRUD, session persistence (localStorage), filtering, clusters |
 | `useHistory` | Generic undo/redo stack (max 50 entries) |
-| `useCanvasInteraction` | Pan/zoom/drag for mouse and touch events |
+| `useCanvasInteraction` | Pan/zoom/drag for mouse and touch events (pinch-zoom via touch distance) |
 | `useSearch` | Node search with result cycling |
 | `useAnnouncer` | ARIA live region announcements (WCAG 4.1.3) |
 | `useAccessibilityLabels` | ARIA label generation for nodes and toolbar |
-
-`HiveMindApp.tsx` still orchestrates all these hooks plus handles: keyboard shortcuts, node selection/editing, toolbar UI, settings panel, template loading, and all modal state.
 
 ### Hexagonal Coordinate System
 
@@ -53,44 +57,51 @@ HEX_HEIGHT = 2 * 80       = 160px
 
 6 neighbor directions: East(+1,0), NE(+1,-1), NW(0,-1), West(-1,0), SW(-1,1), SE(0,+1)
 
-Coordinate conversion functions: `hexToPixel(q,r)` and `pixelToHex(x,y)` handle the axial-to-screen transform.
+Coordinate conversion functions `hexToPixel(q,r)` and `pixelToHex(x,y)` are defined in `HiveMindApp.tsx` (not yet extracted).
 
 ### API Proxy Architecture
 
-The Gemini API key is **not** in the client. The Express server proxies requests:
+The Gemini API key is **not** in the client. The Express server (`server/index.ts`) proxies requests:
 
 - `POST /api/generate` — text generation (neighbor expansion, deep dive)
 - `POST /api/generate-image` — image generation (same Gemini endpoint)
 
-Both proxy to `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`. Rate limited to 100 req/15min per IP. The client uses `buildApiUrl()` from `@/lib/api` which handles the base path prefix.
+Both proxy to `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`. Rate limited to 100 req/15min per IP. The client uses `buildApiUrl()` from `@/lib/api` which reads `import.meta.env.BASE_URL` to construct the correct subpath-aware URL.
 
 Environment: `GEMINI_API_KEY` in `.env`, loaded by the server via `dotenv`.
 
-Model: `gemini-3-flash-preview` (defined in both `useAIGeneration.ts` and `HiveMindApp.tsx`).
+Model: `gemini-3-flash-preview` (duplicated — see Key Considerations).
+
+The server mounts the API router at both `/api` and `${basePath}/api` so requests work whether accessed directly or through the Caddy reverse proxy.
 
 ### Lazy-Loaded Modals
 
-Four modals are code-split with `React.lazy()`:
+Five modals, four code-split with `React.lazy()`:
 - `BuildArtifactModal` — generates documents/artifacts from brainstorm
 - `DeepDiveModal` — detailed AI analysis of a node
 - `SessionManagerModal` — save/load/export sessions
 - `ImageGenerationModal` — Gemini image generation per node
+- `KeyboardShortcutsModal` — keyboard shortcut reference (not lazy-loaded)
 
-Both `.tsx` (TypeScript) and legacy `.jsx` versions exist for the first three modals. The `.tsx` versions are the active imports.
+Legacy `.jsx` versions of the first three modals coexist with active `.tsx` replacements.
 
 ### Subpath Deployment
 
 Everything is configured for `/hivemind/` subpath:
 - Vite: `base: '/hivemind/'`
-- Express: serves static at configurable `BASE_PATH` (defaults to `/hivemind`)
-- Client routing: wouter `Router base={BASE_PATH}`
-- API URLs: `buildApiUrl()` prepends the base path
+- Express: serves static at configurable `BASE_PATH` env var (defaults to `/hivemind`)
+- Client routing: wouter `Router base={BASE_PATH}` (derived from `import.meta.env.BASE_URL`)
+- API URLs: `buildApiUrl()` in `client/src/lib/api.ts` prepends the base path
 
 ### Type System
 
 Types are in `client/src/types/hexmind.ts` — comprehensive definitions for `HexNode`, `ViewState`, `NodeType`, `SessionData`, etc. Includes type guards (`isHexNode`, `isNodeMap`, `isViewState`, `isSessionData`) for runtime validation.
 
-**Node types**: root, concept, action, technical, question, risk, default — each with distinct colors and icons.
+**Node types**: root, concept, action, technical, question, risk, default — each with distinct colors and icons defined in `NODE_TYPES` (see duplication note below).
+
+### Icon Barrel File
+
+All lucide-react imports go through `client/src/lib/icons.ts`, a barrel file that re-exports only used icons for tree-shaking. Import from `@/lib/icons`, not directly from `lucide-react`.
 
 ### State Persistence
 
@@ -110,7 +121,7 @@ Defined in both `tsconfig.json` (for type checking) and `vite.config.ts` (for bu
 
 ### Bundle Splitting
 
-Manual chunks configured in `vite.config.ts`:
+Manual chunks in `vite.config.ts`:
 - `ui-primitives` — all Radix UI components
 - `vendor-heavy` — react-markdown
 - `icons` — lucide-react
@@ -119,9 +130,12 @@ Bundle analysis: `dist/bundle-stats.html` generated on build via rollup-plugin-v
 
 ## Key Considerations
 
-- **HiveMindApp.tsx is 4000+ lines** — use `@geepers_scalpel` for edits; further hook extraction is ongoing
-- **Duplicate model constant** — `GEMINI_TEXT_MODEL` defined in both `HiveMindApp.tsx:117` and `useAIGeneration.ts:16`
-- **Legacy .jsx modals** — `BuildArtifactModal.jsx`, `DeepDiveModal.jsx`, `SessionManagerModal.jsx` coexist with their `.tsx` replacements
-- **wouter patch** — `patches/wouter@3.7.1.patch` exists for routing fixes
-- **`shared/const.ts`** — re-exported by `client/src/const.ts`; contains cookie/auth constants from a Manus platform origin
-- **Touch handling** — canvas interactions support both mouse and touch (pinch-zoom via touch distance tracking)
+- **HiveMindApp.tsx is ~4100 lines** — use `@geepers_scalpel` for edits; further hook extraction is ongoing
+- **HexCanvas.tsx is ~720 lines** — the SVG rendering component, also benefits from scalpel edits
+- **Duplicate `NODE_TYPES`** — the full node type config (colors, icons, labels) is defined independently in both `HexCanvas.tsx` and `HiveMindApp.tsx`
+- **Duplicate `GEMINI_TEXT_MODEL`** — defined in both `HiveMindApp.tsx` and `useAIGeneration.ts`
+- **Legacy .jsx modals** — `BuildArtifactModal.jsx`, `DeepDiveModal.jsx`, `SessionManagerModal.jsx` coexist with their `.tsx` replacements; the `.jsx` files are dead code
+- **wouter patch** — `patches/wouter@3.7.1.patch` exists for routing fixes (package.json specifies `wouter@^3.3.5`, so the patch applies to the resolved version)
+- **`shared/const.ts`** — re-exported by `client/src/const.ts`; contains cookie/auth constants from a Manus platform origin (vestigial)
+- **Manus platform artifacts** — `allowedHosts` in `vite.config.ts` includes Manus domains, `ManusDialog.tsx` exists, `vite-plugin-manus-runtime` is in devDependencies; all are vestigial from the original platform but harmless
+- **`HexNode` defined in two places** — canonical types in `types/hexmind.ts`, but `useAIGeneration.ts` has its own inline `HexNode` interface rather than importing from types
