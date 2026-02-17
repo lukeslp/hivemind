@@ -111,7 +111,7 @@ Everything is configured for `/hivemind/` subpath:
 
 ### Type System
 
-Types are in `client/src/types/hexmind.ts` — comprehensive definitions for `HexNode`, `ViewState`, `NodeType`, `SessionData`, etc. Includes type guards (`isHexNode`, `isNodeMap`, `isViewState`, `isSessionData`) for runtime validation.
+Types are in `client/src/types/hexmind.ts` — `HexNode`, `ViewState`, `NodeType`, `SessionData`, etc. Includes type guards (`isHexNode`, `isNodeMap`, `isViewState`, `isSessionData`) for runtime validation.
 
 **Node types**: root, concept, action, technical, question, risk, default — each with distinct colors and icons defined in `NODE_TYPES` (see duplication note below).
 
