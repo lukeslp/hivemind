@@ -37,13 +37,16 @@ Hooks in `client/src/hooks/`:
 
 | Hook | Purpose |
 |------|---------|
-| `useAIGeneration` | Gemini API calls for neighbor generation + deep dive analysis |
+| `useAIGeneration` | Gemini API calls for neighbor expansion + deep dive node analysis |
 | `useNodeManagement` | CRUD, session persistence (localStorage), filtering, clusters |
 | `useHistory` | Generic undo/redo stack (max 50 entries) |
 | `useCanvasInteraction` | Pan/zoom/drag for mouse and touch events (pinch-zoom via touch distance) |
 | `useSearch` | Node search with result cycling |
 | `useAnnouncer` | ARIA live region announcements (WCAG 4.1.3) |
 | `useAccessibilityLabels` | ARIA label generation for nodes and toolbar |
+| `useComposition` | IME composition state for controlled text inputs |
+| `useMobile` | Breakpoint detection (768px threshold) |
+| `usePersistFn` | Stable ref wrapper for callbacks (avoids stale closure issues) |
 
 ### Hexagonal Coordinate System
 
