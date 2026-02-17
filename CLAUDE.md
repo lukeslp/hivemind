@@ -27,9 +27,22 @@ sm logs hivemind      # View production logs
 
 ## Architecture
 
+### File Structure
+
+`client/src/` has a `pages/` subdirectory:
+- `pages/HiveMindApp.tsx` — the main canvas component (~4100 lines); see below
+- `pages/Home.tsx` — splash/landing page
+- `pages/NotFound.tsx` — 404 page
+- `App.tsx` — wouter router that wires pages together
+- `contexts/ThemeContext.tsx` — theme provider (wraps next-themes)
+
+`lib/` utilities beyond `api.ts` and `icons.ts`:
+- `templates.ts` — built-in brainstorm starter templates
+- `utils.ts` — cn() helper and misc utilities
+
 ### Two Large Files
 
-`HiveMindApp.tsx` (~4100 lines) and `HexCanvas.tsx` (~720 lines) are the two largest files. Use `@geepers_scalpel` for surgical edits to either. The main component orchestrates 7 extracted hooks plus handles keyboard shortcuts, node selection/editing, toolbar UI, settings panel, template loading, and all modal state.
+`pages/HiveMindApp.tsx` (~4100 lines) and `components/HexCanvas.tsx` (~720 lines) are the two largest files. Use `@geepers_scalpel` for surgical edits to either. The main component orchestrates 10 extracted hooks plus handles keyboard shortcuts, node selection/editing, toolbar UI, settings panel, template loading, and all modal state.
 
 ### Hook-Extraction Pattern
 
@@ -81,7 +94,7 @@ The server mounts the API router at both `/api` and `${basePath}/api` so request
 
 Five modals, four code-split with `React.lazy()`:
 - `BuildArtifactModal` — generates documents/artifacts from brainstorm
-- `DeepDiveModal` — detailed AI analysis of a node
+- `DeepDiveModal` — asks Gemini for a detailed analysis of a node
 - `SessionManagerModal` — save/load/export sessions
 - `ImageGenerationModal` — Gemini image generation per node
 - `KeyboardShortcutsModal` — keyboard shortcut reference (not lazy-loaded)
@@ -138,7 +151,10 @@ Bundle analysis: `dist/bundle-stats.html` generated on build via rollup-plugin-v
 - **Duplicate `NODE_TYPES`** — the full node type config (colors, icons, labels) is defined independently in both `HexCanvas.tsx` and `HiveMindApp.tsx`
 - **Duplicate `GEMINI_TEXT_MODEL`** — defined in both `HiveMindApp.tsx` and `useAIGeneration.ts`
 - **Legacy .jsx modals** — `BuildArtifactModal.jsx`, `DeepDiveModal.jsx`, `SessionManagerModal.jsx` coexist with their `.tsx` replacements; the `.jsx` files are dead code
+- **`useCanvasInteraction.js`** — a legacy `.js` version coexists with the active `.ts` version; same situation as the modal duplicates, `.js` is dead code
 - **wouter patch** — `patches/wouter@3.7.1.patch` exists for routing fixes (package.json specifies `wouter@^3.3.5`, so the patch applies to the resolved version)
 - **`shared/const.ts`** — re-exported by `client/src/const.ts`; contains cookie/auth constants from a Manus platform origin (vestigial)
 - **Manus platform artifacts** — `allowedHosts` in `vite.config.ts` includes Manus domains, `ManusDialog.tsx` exists, `vite-plugin-manus-runtime` is in devDependencies; all are vestigial from the original platform but harmless
 - **`HexNode` defined in two places** — canonical types in `types/hexmind.ts`, but `useAIGeneration.ts` has its own inline `HexNode` interface rather than importing from types
+- **`sensor_playground/`** — a standalone Python Flask experiment (unrelated to the main app); ignore it
+- **`GEMINI.md`** — placeholder monorepo crosslink file, not Gemini-specific documentation
