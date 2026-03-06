@@ -1,8 +1,10 @@
 # HiveMind
 
-Spatial brainstorming on a hexagonal grid. Start with one idea, click to expand it into 6 contextual neighbors using a language model, and keep going until you've mapped out the entire problem space. Then export your map as a structured document — a project proposal, SWOT analysis, user stories, whatever you need.
+## EXPERIMENTAL - UNFINISHED (help me out!)
 
-This is an experimental project and very much a work in progress. Things may break. The core loop works well, but there's rough edges and I'm still figuring out the best interaction patterns for this kind of non-linear thinking tool.
+This is visual brainstorming on a hexagonal grid. Start with one idea, click to expand it into 6 contextual neighbors using a language model, and keep going until you've mapped out the entire problem space. Then export your map as a structured document — a project proposal, SWOT analysis, user stories, whatever you need.
+
+This is an experimental project and very much a work in progress. Things may break. The core loop works well, but there's rough edges and I'm still figuring out the best interaction patterns for this kind of non-linear thinking tool, but it has been the most immediately adopted app I've made in this space.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
@@ -16,6 +18,8 @@ This is an experimental project and very much a work in progress. Things may bre
 You start with a single hex node — your core idea. Click it, and an LLM generates 6 related concepts, positioned as neighbors on the hex grid. Each neighbor gets a type (concept, action, technical, question, or risk) and a short description. Click any of those to expand further. After a few rounds, you've got a visual map of an idea space that would've taken much longer to brainstorm on paper.
 
 The hex grid isn't just decoration — it naturally limits expansion to 6 directions per node, which keeps things focused. Linear brainstorming tools give you unlimited branches and you end up with a mess. Six neighbors forces the model to pick the most relevant angles.
+
+<img width="2292" height="1480" alt="CleanShot 2026-03-06 at 11 30 57@2x" src="https://github.com/user-attachments/assets/d2b394c1-45a9-4428-acf3-ae29ce495fcb" />
 
 ### Node types
 
@@ -32,9 +36,13 @@ Each node is categorized by type, with distinct colors and icons:
 
 The LLM assigns types automatically based on context, but you can change them manually.
 
+<img width="2296" height="1478" alt="CleanShot 2026-03-06 at 11 28 41@2x" src="https://github.com/user-attachments/assets/9407a3f9-49c9-4a7b-bd03-f5ccea79612b" />
+
 ### Deep dive
 
 Right-click (or long-press on mobile) any node for a deep-dive analysis. The LLM generates a detailed breakdown of that specific idea — useful when you want to explore one branch without expanding the whole grid.
+
+<img width="2260" height="1458" alt="CleanShot 2026-03-06 at 11 30 15@2x" src="https://github.com/user-attachments/assets/df6993e6-4019-44b1-811f-a12a2afda23d" />
 
 ### Building from your map
 
