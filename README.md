@@ -6,12 +6,12 @@ This is visual brainstorming on a hexagonal grid. Start with one idea, click to 
 
 This is an experimental project and very much a work in progress. Things may break. The core loop works well, but there's rough edges and I'm still figuring out the best interaction patterns for this kind of non-linear thinking tool, but it has been the most immediately adopted app I've made in this space. I'd love for this project to become something others contribute to. 
 
+## **[Try it live](https://dr.eamer.dev/hivemind/)**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 [![Live](https://img.shields.io/badge/live-dr.eamer.dev%2Fhivemind-cyan.svg)](https://dr.eamer.dev/hivemind/)
-
-**[Try it live](https://dr.eamer.dev/hivemind/)**
 
 ## How it works
 
