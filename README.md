@@ -1,6 +1,6 @@
 # HiveMind
 
-## EXPERIMENTAL - UNFINISHED (help me out!)
+## EXPERIMENTAL - UNFINISHED (come brainstorm!)
 
 This is visual brainstorming on a hexagonal grid. Start with one idea, click to expand it into 6 contextual neighbors using a language model, and keep going until you've mapped out the entire problem space. Then export your map as a structured document — a project proposal, SWOT analysis, user stories, whatever you need.
 
