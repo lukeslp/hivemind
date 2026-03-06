@@ -1,10 +1,10 @@
 # HiveMind
 
-## EXPERIMENTAL - UNFINISHED (come brainstorm!)
+## EXPERIMENTAL - UNFINISHED
 
 This is visual brainstorming on a hexagonal grid. Start with one idea, click to expand it into 6 contextual neighbors using a language model, and keep going until you've mapped out the entire problem space. Then export your map as a structured document — a project proposal, SWOT analysis, user stories, whatever you need.
 
-This is an experimental project and very much a work in progress. Things may break. The core loop works well, but there's rough edges and I'm still figuring out the best interaction patterns for this kind of non-linear thinking tool, but it has been the most immediately adopted app I've made in this space.
+This is an experimental project and very much a work in progress. Things may break. The core loop works well, but there's rough edges and I'm still figuring out the best interaction patterns for this kind of non-linear thinking tool, but it has been the most immediately adopted app I've made in this space. I'd love for this project to become something others contribute to. 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
