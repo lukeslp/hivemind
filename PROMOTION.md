@@ -155,6 +155,8 @@ Same Geepers entry as above.
 
 > Note: This repo auto-generates awesome-public-datasets. Submit via apd-core, not the main repo. Uses YAML metadata. Check their [CONTRIBUTING.md](https://github.com/awesomedata/apd-core/blob/master/CONTRIBUTING.md) for the exact schema.
 
+> **Name alignment note**: HuggingFace name `bsky-firehose-anonymized-dec-2025` = Kaggle name `bluesky-social`. HuggingFace name `steam-co-review-network` = GitHub/Kaggle `steam-network-data`. Use the GitHub names for apd-core entries that have GitHub repos.
+
 **PR 1 — accessibility-atlas:**
 ```markdown
 - [Accessibility Atlas](https://github.com/lukeslp/accessibility-atlas) - 62 datasets covering disability demographics, web accessibility compliance, and assistive technology usage across US and global sources.
@@ -212,6 +214,67 @@ Same entries — all go through the apd-core submission process. Best categories
 - meteorites-ufos-detection-bias → Complementary Collections
 - us-disasters-mashup → Government / Emergency Management
 - us-inequality-atlas → Government / Demographics
+
+### High-Value HuggingFace-Only Datasets
+
+These datasets are published on HuggingFace (and some on Kaggle) but don't have public GitHub repos yet. For apd-core submissions, reference HF directly — apd-core accepts HuggingFace dataset links.
+
+| Dataset | HF Downloads | License | HF Link |
+|---------|-------------|---------|---------|
+| etymology-atlas | **4.38M** | CC BY-SA 3.0 | https://huggingface.co/datasets/lukeslp/etymology-atlas |
+| us-housing-affordability-crisis | 28 | CC BY 4.0 | https://huggingface.co/datasets/lukeslp/us-housing-affordability-crisis |
+| usgs-significant-earthquakes | 24 | CC0 1.0 | https://huggingface.co/datasets/lukeslp/usgs-significant-earthquakes |
+| world-languages | 39 | CC BY 4.0 | https://huggingface.co/datasets/lukeslp/world-languages |
+| noaa-significant-storms | 18 | CC0 1.0 | https://huggingface.co/datasets/lukeslp/noaa-significant-storms |
+
+**etymology-atlas is the highest-priority submission** — 4.38M downloads makes it the strongest dataset in the portfolio. Prioritize getting this into apd-core.
+
+**apd-core entries for HF-only datasets:**
+
+```yaml
+# etymology-atlas — add to apd-core/core/Language/etymology-atlas.yaml
+name: Etymology Atlas
+url: https://huggingface.co/datasets/lukeslp/etymology-atlas
+description: Word origins and etymological data covering 4M+ entries across multiple languages with historical roots, language family mappings, and borrowing chains.
+category: Language
+license: CC BY-SA 3.0
+```
+
+```yaml
+# us-housing-affordability-crisis
+name: US Housing Affordability Crisis
+url: https://huggingface.co/datasets/lukeslp/us-housing-affordability-crisis
+description: County-level US housing affordability metrics spanning median home prices, rent burden, vacancy rates, and homeownership rates from Census and HUD sources.
+category: Government
+license: CC BY 4.0
+```
+
+```yaml
+# usgs-significant-earthquakes
+name: USGS Significant Earthquakes
+url: https://huggingface.co/datasets/lukeslp/usgs-significant-earthquakes
+description: USGS catalog of significant earthquakes worldwide with magnitude, depth, coordinates, and impact data.
+category: Complementary-Boundaries
+license: CC0 1.0
+```
+
+```yaml
+# world-languages
+name: World Languages
+url: https://huggingface.co/datasets/lukeslp/world-languages
+description: Structured dataset of world languages covering ISO codes, speaker populations, language families, geographic distribution, and writing systems.
+category: Language
+license: CC BY 4.0
+```
+
+```yaml
+# noaa-significant-storms
+name: NOAA Significant Storms
+url: https://huggingface.co/datasets/lukeslp/noaa-significant-storms
+description: NOAA catalog of significant storm events with severity, location, fatalities, and economic impact data.
+category: Complementary-Boundaries
+license: CC0 1.0
+```
 
 ---
 
@@ -501,6 +564,7 @@ Recommended order based on effort-to-impact ratio:
 | alt-text-local-ai | awesome-a11y |
 | awesome-accessibility | awesome (meta-list), awesome-a11y (cross-link) |
 | accessibility-atlas | apd-core (awesome-public-datasets) |
+| etymology-atlas | apd-core (HF-only, reference HF link) |
 | bsky-firehose-anonymized-dec-2025 | apd-core |
 | joshua-project-data | apd-core |
 | us-attention-data | apd-core |
