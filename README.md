@@ -1,10 +1,10 @@
 # HiveMind
 
-## EXPERIMENTAL - UNFINISHED
+> Spatial brainstorming tool that expands ideas on a hexagonal grid — click any node and an LLM generates 6 contextual neighbors.
 
-This is visual brainstorming on a hexagonal grid. Start with one idea, click to expand it into 6 contextual neighbors using a language model, and keep going until you've mapped out the entire problem space. Then export your map as a structured document — a project proposal, SWOT analysis, user stories, whatever you need.
+Visual brainstorming on a hexagonal grid. Start with one idea, click to expand it into 6 contextual neighbors using a language model, and keep going until you've mapped out the entire problem space. Then export your map as a structured document — a project proposal, SWOT analysis, user stories, whatever you need.
 
-This is an experimental project and very much a work in progress. Things may break. The core loop works well, but there's rough edges and I'm still figuring out the best interaction patterns for this kind of non-linear thinking tool, but it has been the most immediately adopted app I've made in this space. I'd love for this project to become something others contribute to. 
+The core brainstorming loop works well and sees regular use. There are still rough edges and the interaction patterns for non-linear thinking tools like this are an ongoing exploration, but it's been the most immediately adopted app I've made in this space. Contributions welcome.
 
 ## **[Try it live](https://dr.eamer.dev/hivemind/)**
 
@@ -156,7 +156,7 @@ pnpm format     # Prettier
 
 ## Status
 
-Experimental. The core brainstorming loop works well and I use it regularly, but there's known issues:
+Active development. The core brainstorming loop works well and sees regular use. Known issues:
 
 - `HiveMindApp.tsx` is ~4100 lines and needs further decomposition
 - Some type definitions are duplicated between files
