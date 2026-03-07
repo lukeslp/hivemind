@@ -294,7 +294,7 @@ license: CC0 1.0
 
 **PR 3 — HiveMind:**
 ```markdown
-- [HiveMind](https://github.com/lukeslp/hivemind) - Spatial brainstorming tool using hexagonal grid layout with LLM-powered node expansion. ([Demo](https://dr.eamer.dev/hivemind/))
+- [HiveMind](https://github.com/lukeslp/hivemind) - Spatial brainstorming tool using hexagonal grid layout — each node expands into 6 LLM-generated contextual neighbors. ([Demo](https://dr.eamer.dev/hivemind/))
 ```
 
 ---
@@ -311,7 +311,7 @@ license: CC0 1.0
 
 **PR — reference-renamer:**
 ```markdown
-- [Reference Renamer](https://github.com/lukeslp/reference-renamer) - Academic reference management CLI that standardizes filenames using LLM-powered metadata extraction.
+- [Reference Renamer](https://github.com/lukeslp/reference-renamer) - Academic reference management CLI that standardizes filenames using language model metadata extraction.
 ```
 > Target: awesome-research-tools, awesome-academic, awesome-llm-apps
 
@@ -387,7 +387,7 @@ license: CC0 1.0
 
 **PR — HiveMind (Knowledge Management or Groupware section):**
 ```markdown
-- [HiveMind](https://github.com/lukeslp/hivemind) - Spatial brainstorming on a hexagonal grid with LLM-powered expansion and document export. `MIT` `Nodejs`
+- [HiveMind](https://github.com/lukeslp/hivemind) - Spatial brainstorming on a hexagonal grid with LLM-generated node expansion and document export. `MIT` `Nodejs`
 ```
 
 **PR — Screenshat (Media section):**
