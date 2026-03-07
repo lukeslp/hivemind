@@ -71,9 +71,9 @@ Each entry is formatted for the target list's conventions. One PR per entry unle
 - [Awesome Accessibility](https://github.com/lukeslp/awesome-accessibility) - Curated list of accessibility resources, tools, and best practices for inclusive digital experiences.
 ```
 
-**PR 5 — accessibility-skill (Tools section):**
+**PR 5 — accessibility-multiskill (Tools section):**
 ```markdown
-- [Accessibility Skill](https://github.com/lukeslp/accessibility-skill) - Comprehensive accessibility skill for coding agents covering WCAG 2.2 AA, motor, cognitive, visual, and communication disabilities.
+- [Accessibility Skill](https://github.com/lukeslp/accessibility-multiskill) - Comprehensive accessibility skill for coding agents covering WCAG 2.2 AA, motor, cognitive, visual, and communication disabilities.
 ```
 
 #### Target: [awesomelistsio/awesome-web-accessibility](https://github.com/awesomelistsio/awesome-web-accessibility)
@@ -123,7 +123,7 @@ Same entries — submit to both lists.
 
 **PR 2 — Accessibility Skill:**
 ```markdown
-- [Accessibility Skill](https://github.com/lukeslp/accessibility-skill) - Comprehensive WCAG 2.2 AA accessibility skill for Claude Code agents.
+- [Accessibility Skill](https://github.com/lukeslp/accessibility-multiskill) - Comprehensive WCAG 2.2 AA accessibility skill for Claude Code agents.
 ```
 
 **PR 3 — Geepers API Skills:**
@@ -560,7 +560,7 @@ Recommended order based on effort-to-impact ratio:
 | screenshat | awesome-selfhosted |
 | accessibility-devkit | awesome-a11y |
 | accessibility-devkit-llm | awesome-a11y, awesome-llm-apps |
-| accessibility-skill | awesome-a11y, awesome-claude-code |
+| accessibility-multiskill | awesome-a11y, awesome-claude-code |
 | alt-text-local-ai | awesome-a11y |
 | awesome-accessibility | awesome (meta-list), awesome-a11y (cross-link) |
 | accessibility-atlas | apd-core (awesome-public-datasets) |
