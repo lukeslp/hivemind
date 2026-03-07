@@ -158,3 +158,31 @@ Bundle analysis: `dist/bundle-stats.html` generated on build via rollup-plugin-v
 - **`HexNode` defined in two places** — canonical types in `types/hexmind.ts`, but `useAIGeneration.ts` has its own inline `HexNode` interface rather than importing from types
 - **`sensor_playground/`** — a standalone Python Flask experiment (unrelated to the main app); ignore it
 - **`GEMINI.md`** — placeholder monorepo crosslink file, not Gemini-specific documentation
+- **`PROMOTION.md`** — comprehensive promotion guide with copy-paste-ready awesome-list PR entries, README polish checklists, and submission strategy for all 54 public repos at github.com/lukeslp
+
+## Recent Session: Promotion Planning (2026-03-07)
+
+### What was done
+1. **README.md polished** — removed "EXPERIMENTAL - UNFINISHED" header, added blockquote one-liner description, softened language throughout to "Active development" tone. The README is now awesome-list submission ready.
+2. **PROMOTION.md created** — standalone promotion guide covering:
+   - Copy-paste-ready PR entries for 15+ awesome lists
+   - Full evaluation of all 54 public repos (36 SUBMIT, 10 MAYBE, 8 SKIP)
+   - 9 dataset repos identified for awesome-public-datasets (apd-core)
+   - Reddit, HN, Product Hunt, dev.to strategy with specific targets
+   - README polish checklists per repo (badges, screenshots, install commands)
+
+### Next steps for the promotion effort
+1. **Start submitting to awesome lists** — priority order in PROMOTION.md. Datasets (apd-core) are highest ROI since there are 9 to submit and the list is high-traffic.
+2. **Polish READMEs on other repos** — each repo in the PROMOTION.md has a checklist of missing items (badges, screenshots, install commands). Do these before submitting those repos.
+3. **dr.eamer.dev live demos** — reference these URLs in awesome-list entries where applicable:
+   - `/hivemind/` — HiveMind brainstorming tool
+   - `/bluesky/firehose/` — Firehose dashboard
+   - `/datavis/attractive/` — Attractive 3D visualization
+   - `/code/`, `/code/api/`, `/code/snippets/`, `/io/` — additional portfolio pages (couldn't crawl from sandboxed environment)
+4. **Show HN** — post HiveMind first (~8-9am ET weekday), space others out by weeks
+5. **dev.to portfolio article** — "Everything I've Built with LLMs in 3 Years" tying all projects together
+
+### Repos NOT yet covered
+- Some repos may exist as private that should be evaluated when made public
+- The geepers-* platform-specific skill packs (gemini, gpt, manus, skills) are SKIP — submit the parent `geepers` repo instead
+- `skills` is a fork of Anthropic's repo — not eligible for awesome lists
